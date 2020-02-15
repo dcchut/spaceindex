@@ -46,10 +46,6 @@ impl Shapelike for Point {
         0.0
     }
 
-    fn intersects_region(&self, other: &Region) -> Result<bool, ShapelikeError> {
-        other.contains_point(self)
-    }
-
     fn get_min_distance(&self, other: &Shape) -> Result<f64, ShapelikeError> {
         check_dimensions_match(self, other)?;
 
@@ -58,6 +54,10 @@ impl Shapelike for Point {
             Shape::LineSegment(line) => min_distance_point_line(self, line),
             Shape::Region(region) => Ok(min_distance_point_region(self, region)),
         }
+    }
+
+    fn intersects_region(&self, region: &Region) -> Result<bool, ShapelikeError> {
+        region.contains_point(self)
     }
 }
 

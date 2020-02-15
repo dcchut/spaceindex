@@ -25,19 +25,6 @@ pub trait Shapelike {
     fn get_dimension(&self) -> usize;
     fn get_min_bounding_region(&self) -> Region;
     fn get_area(&self) -> f64;
-
-    fn contains_point(&self, other: &Point) -> Result<bool, ShapelikeError> {
-        Err(ShapelikeError::UnsupportedOperation)
-    }
-
-    fn intersects_line_segment(&self, other: &LineSegment) -> Result<bool, ShapelikeError> {
-        Err(ShapelikeError::UnsupportedOperation)
-    }
-
-    fn intersects_region(&self, other: &Region) -> Result<bool, ShapelikeError> {
-        Err(ShapelikeError::UnsupportedOperation)
-    }
-
     fn get_min_distance(&self, other: &Shape) -> Result<f64, ShapelikeError>;
 
     fn intersects_shape(&self, other: &Shape) -> Result<bool, ShapelikeError>
@@ -51,6 +38,18 @@ pub trait Shapelike {
             Shape::LineSegment(line) => self.intersects_line_segment(line),
             Shape::Region(region) => self.intersects_region(region),
         }
+    }
+
+    fn contains_point(&self, _point: &Point) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
+    }
+
+    fn intersects_line_segment(&self, _line: &LineSegment) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
+    }
+
+    fn intersects_region(&self, _region: &Region) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
     }
 }
 
