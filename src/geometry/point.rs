@@ -1,6 +1,6 @@
 use crate::geometry::{
-    min_distance_point, min_distance_point_line, min_distance_point_region, Region, Shape,
-    Shapelike, ShapelikeError,
+    check_dimensions_match, min_distance_point, min_distance_point_line, min_distance_point_region,
+    Region, Shape, Shapelike, ShapelikeError,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,8 +46,12 @@ impl Shapelike for Point {
         0.0
     }
 
+    fn intersects_region(&self, other: &Region) -> Result<bool, ShapelikeError> {
+        other.contains_point(self)
+    }
+
     fn get_min_distance(&self, other: &Shape) -> Result<f64, ShapelikeError> {
-        self.check_dimensions_match(other)?;
+        check_dimensions_match(self, other)?;
 
         match other {
             Shape::Point(point) => Ok(min_distance_point(self, point)),

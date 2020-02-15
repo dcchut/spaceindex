@@ -7,23 +7,6 @@ pub enum Shape {
     LineSegment(LineSegment),
 }
 
-impl Shape {
-    /// Returns `true` if  `self` and `other` intersect.
-    pub fn intersects_shape(&self, other: &Shape) -> bool {
-        true
-    }
-
-    /// Returns `true` if `self` contains `other`.
-    pub fn contains_shape(&self, other: &Shape) -> bool {
-        true
-    }
-
-    /// Returns `true` if (`self` and `other` touches?)
-    pub fn touches_shape(&self, other: &Shape) -> bool {
-        true
-    }
-}
-
 // TODO: write a derive macro to write out this boilerplate
 impl Shapelike for Shape {
     fn get_center(&self) -> Point {
@@ -64,5 +47,31 @@ impl Shapelike for Shape {
             Shape::LineSegment(line) => line.get_min_distance(other),
             Shape::Region(region) => region.get_min_distance(other),
         }
+    }
+
+    fn intersects_shape(&self, other: &Shape) -> Result<bool, ShapelikeError> {
+        match self {
+            Shape::Point(point) => point.intersects_shape(other),
+            Shape::LineSegment(line) => line.intersects_shape(other),
+            Shape::Region(region) => region.intersects_shape(other),
+        }
+    }
+}
+
+impl Into<Shape> for Point {
+    fn into(self) -> Shape {
+        Shape::Point(self)
+    }
+}
+
+impl Into<Shape> for LineSegment {
+    fn into(self) -> Shape {
+        Shape::LineSegment(self)
+    }
+}
+
+impl Into<Shape> for Region {
+    fn into(self) -> Shape {
+        Shape::Region(self)
     }
 }

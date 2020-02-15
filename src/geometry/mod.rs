@@ -16,6 +16,8 @@ pub enum ShapelikeError {
     UnsupportedOperation,
     #[error("shapes have unmatched dimensions {0} and {1}")]
     UnmatchedDimensions(usize, usize),
+    #[error("unexpected dimension {0} (expected: {1})")]
+    UnexpectedDimension(usize, usize),
 }
 
 pub trait Shapelike {
@@ -23,17 +25,32 @@ pub trait Shapelike {
     fn get_dimension(&self) -> usize;
     fn get_min_bounding_region(&self) -> Region;
     fn get_area(&self) -> f64;
+
+    fn contains_point(&self, other: &Point) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
+    }
+
+    fn intersects_line_segment(&self, other: &LineSegment) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
+    }
+
+    fn intersects_region(&self, other: &Region) -> Result<bool, ShapelikeError> {
+        Err(ShapelikeError::UnsupportedOperation)
+    }
+
     fn get_min_distance(&self, other: &Shape) -> Result<f64, ShapelikeError>;
 
-    fn check_dimensions_match(&self, other: &Shape) -> Result<(), ShapelikeError> {
-        if self.get_dimension() != other.get_dimension() {
-            return Err(ShapelikeError::UnmatchedDimensions(
-                self.get_dimension(),
-                other.get_dimension(),
-            ));
-        }
+    fn intersects_shape(&self, other: &Shape) -> Result<bool, ShapelikeError>
+    where
+        Self: Sized,
+    {
+        check_dimensions_match(self, other)?;
 
-        Ok(())
+        match other {
+            Shape::Point(point) => self.contains_point(point),
+            Shape::LineSegment(line) => self.intersects_line_segment(line),
+            Shape::Region(region) => self.intersects_region(region),
+        }
     }
 }
 
@@ -109,4 +126,19 @@ fn min_distance_region(s: &Region, t: &Region) -> f64 {
     }
 
     distance
+}
+
+/// Helper function to check that two shapelike's have the same dimension.
+fn check_dimensions_match<S: Shapelike, T: Shapelike>(
+    s1: &S,
+    s2: &T,
+) -> Result<(), ShapelikeError> {
+    let d1 = s1.get_dimension();
+    let d2 = s2.get_dimension();
+
+    if d1 != d2 {
+        Err(ShapelikeError::UnmatchedDimensions(d1, d2))
+    } else {
+        Ok(())
+    }
 }
