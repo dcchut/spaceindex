@@ -1,12 +1,11 @@
-# dcc-template-lib
+# spaceindex
 
-[![Build Status](https://travis-ci.org/dcchut/dcc-template-lib.svg?branch=master)](https://travis-ci.org/dcchut/dcc-template-lib)
-[![codecov](https://codecov.io/gh/dcchut/dcc-template-lib/branch/master/graph/badge.svg)](https://codecov.io/gh/dcchut/dcc-template-lib)
+[![Build Status](https://travis-ci.org/dcchut/spaceindex.svg?branch=master)](https://travis-ci.org/dcchut/spaceindex)
+[![codecov](https://codecov.io/gh/dcchut/spaceindex/branch/master/graph/badge.svg)](https://codecov.io/gh/dcchut/spaceindex)
 
-dcc-template-lib is a template for creating Rust library applications.
 
-* [API Documentation](https://docs.rs/dcc-template-lib/)
-* Cargo package: [dcc-template-lib](https://crates.io/crates/dcc-template-lib)
+* [API Documentation](https://docs.rs/spaceindex/)
+* Cargo package: [spaceindex](https://crates.io/crates/spaceindex)
 
 ---
 ## Installation
@@ -15,16 +14,11 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-dcc-template-lib = "0.1"
+spaceindex = "0.1"
 ```
 
 ## Basic Usage
 
-```rust
-fn main() {
-    println!("Hello world!");
-}
-```
 
 ### License
 Licensed under either of

@@ -1,11 +1,11 @@
 [package]
-name = "dcc-template-lib"
+name = "spaceindex"
 version = "0.1.0"
 authors = ["Robert Usher <266585+dcchut@users.noreply.github.com>"]
 edition = "2018"
-description = "A template for creating Rust library applications."
+description = "spaceindex"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/dcchut/dcc-template-lib"
+repository = "https://github.com/dcchut/spaceindex"
 
 [dependencies]
