@@ -9,3 +9,4 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/dcchut/spaceindex"
 
 [dependencies]
+thiserror = "1.0"
