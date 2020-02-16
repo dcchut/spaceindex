@@ -1,5 +1,8 @@
 use crate::geometry::point::IntoPoint;
-use crate::geometry::{LineSegment, Point, Region, Shape, Shapelike};
+use crate::geometry::region::IntoRegion;
+use crate::geometry::{LineSegment, Point, Region, Shape, Shapelike, ShapelikeError};
+use crate::rtree::RTree;
+use rand::Rng;
 
 #[test]
 fn test_line_intersections() {
@@ -65,6 +68,45 @@ fn test_region_area() {
     let ur = (2.0, 2.0).into_pt();
 
     let r = Region::from_points(&ll, &ur);
-
     assert_eq!(r.get_area(), 4.0);
+}
+
+#[test]
+fn test_combine_regions() {
+    // Make the region going from (0.0, 0.0) -> (2.0, 2.0)
+    let b = ((0.0, 0.0), (2.0, 2.0)).into_region();
+
+    // Make the region going from (0.5, 0.5) -> (1.5, 3)
+    let c = ((0.5, 0.5), (1.5, 3.0)).into_region();
+
+    let combined_region = b
+        .combine_region(&c)
+        .expect("Failed to combine regions `b` and `c`");
+
+    // The combined region should go from (0.0)-> (2, 3)
+    assert_eq!(combined_region, ((0.0, 0.0), (2.0, 3.0)).into_region());
+}
+
+#[test]
+fn test_rtree_insert() -> Result<(), ShapelikeError> {
+    let (mut tree, root) = RTree::new(2);
+
+    // insert 50 random positions
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..50 {
+        let xmin = rng.gen_range(0.0, 50.0);
+        let ymin = rng.gen_range(0.0, 50.0);
+        let height = rng.gen_range(0.0, 50.0);
+        let width = rng.gen_range(0.0, 50.0);
+
+        let r = ((xmin, ymin), (xmin + width, ymin + height)).into_region();
+        tree.insert(r, 11)?;
+    }
+
+    tree.validate_consistency(root);
+
+    dbg!(&tree);
+
+    Ok(())
 }

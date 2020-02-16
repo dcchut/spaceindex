@@ -11,3 +11,4 @@ repository = "https://github.com/dcchut/spaceindex"
 [dependencies]
 thiserror = "1.0"
 generational-arena = "0.2"
+rand = "0.7"

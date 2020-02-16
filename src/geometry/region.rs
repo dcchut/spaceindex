@@ -1,3 +1,4 @@
+use crate::geometry::point::IntoPoint;
 use crate::geometry::{
     check_dimensions_match, min_distance_point_region, min_distance_region, LineSegment, Point,
     Shape, Shapelike, ShapelikeError,
@@ -9,17 +10,51 @@ pub struct Region {
 }
 
 impl Region {
+    /// Creates a new [`Region`].
     pub fn new(coordinates: Vec<(f64, f64)>) -> Self {
         Self { coordinates }
     }
 
+    /// Creates an infinite [`Region']
+    pub fn infinite(dimension: usize) -> Self {
+        let coordinates = vec![(std::f64::MIN, std::f64::MAX); dimension];
+
+        Self::new(coordinates)
+    }
+
+    /// Returns an iterator over coordinates in this region.
     pub fn coordinates_iter(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.coordinates.iter().cloned()
     }
 
+    /// Constructs a region from a pair of points.
     #[inline(always)]
     pub fn from_points(a: &Point, b: &Point) -> Self {
         Self::new(a.coordinate_iter().zip(b.coordinate_iter()).collect())
+    }
+
+    /// Determines whether this region contains another region `other`.
+    pub fn contains_region(&self, other: &Region) -> Result<bool, ShapelikeError> {
+        check_dimensions_match(self, other)?;
+
+        Ok(!self
+            .coordinates_iter()
+            .zip(other.coordinates_iter())
+            .any(|((s_low, s_high), (o_low, o_high))| s_low > o_low || s_high < o_high))
+    }
+
+    /// Combines this region with another region `other`.
+    pub fn combine_region(&self, other: &Region) -> Result<Region, ShapelikeError> {
+        check_dimensions_match(self, other)?;
+
+        Ok(Region::new(
+            self.coordinates_iter()
+                .zip(other.coordinates_iter())
+                .map(|((s_low, s_high), (o_low, o_high))| {
+                    (f64::min(s_low, o_low), f64::max(s_high, o_high))
+                })
+                .collect(),
+        ))
     }
 }
 
@@ -102,5 +137,21 @@ impl Shapelike for Region {
             .coordinates_iter()
             .zip(region.coordinates_iter())
             .any(|((s_low, s_high), (o_low, o_high))| s_low > o_high || s_high < o_low))
+    }
+}
+
+pub trait IntoRegion {
+    fn into_region(self) -> Region;
+}
+
+impl IntoRegion for (f64, f64) {
+    fn into_region(self) -> Region {
+        Region::new(vec![(self.0, self.1)])
+    }
+}
+
+impl IntoRegion for ((f64, f64), (f64, f64)) {
+    fn into_region(self) -> Region {
+        Region::from_points(&(self.0).into_pt(), &(self.1).into_pt())
     }
 }
