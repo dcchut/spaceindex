@@ -58,3 +58,13 @@ fn test_point_shapelike_impl() {
     // the (minimum) distance between p and q is the square root of 3
     assert_eq!(p.get_min_distance(&q), Ok(3.0_f64.sqrt()));
 }
+
+#[test]
+fn test_region_area() {
+    let ll = (0.0, 0.0).into_pt();
+    let ur = (2.0, 2.0).into_pt();
+
+    let r = Region::from_points(&ll, &ur);
+
+    assert_eq!(r.get_area(), 4.0);
+}
