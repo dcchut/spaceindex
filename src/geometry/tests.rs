@@ -1,4 +1,5 @@
-use crate::geometry::{Point, LineSegment, Shapelike, Region};
+use crate::geometry::point::IntoPoint;
+use crate::geometry::{LineSegment, Point, Region, Shape, Shapelike};
 
 #[test]
 fn test_line_intersections() {
@@ -6,7 +7,7 @@ fn test_line_intersections() {
     let p2 = Point::new(vec![3.0, 2.0]);
     let p3 = Point::new(vec![2.0, 0.0]);
     let p3a = Point::new(vec![2.0, 3.0]);
-    let p4= Point::new(vec![2.0, 4.0]);
+    let p4 = Point::new(vec![2.0, 4.0]);
     let p5 = Point::new(vec![1.0, 1.0]);
     let p6 = Point::new(vec![2.5, 3.0]);
     let p7 = Point::new(vec![1.0, 2.0]);
@@ -32,4 +33,28 @@ fn test_line_intersections() {
 
     assert_eq!(r3.intersects_line_segment(&ls1), Ok(true));
     assert_eq!(ls1.intersects_region(&r3), Ok(true));
+}
+
+#[test]
+fn test_into_point_impl() {
+    let _pt: Point = 0.1_f32.into_pt();
+    let _pt: Point = 0.1_f64.into_pt();
+    let _pt: Point = (0.5, 0.3).into_pt();
+    let _pt: Point = (1.0, -1.0).into_pt();
+    let _pt: Point = (1.0, 2.0, 3.0).into_pt();
+}
+
+#[test]
+fn test_point_shapelike_impl() {
+    let p = (1.0, 2.0, 3.0).into_pt();
+
+    // check our basic functions work
+    assert_eq!(p.get_dimension(), 3);
+    assert_eq!(p.get_area(), 0.0);
+    assert_eq!(p.get_center(), p);
+
+    let q = Shape::Point((2.0, 3.0, 4.0).into_pt());
+
+    // the (minimum) distance between p and q is the square root of 3
+    assert_eq!(p.get_min_distance(&q), Ok(3.0_f64.sqrt()));
 }

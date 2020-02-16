@@ -89,32 +89,3 @@ impl IntoPoint for (f64, f64, f64) {
         Point::new(vec![self.0, self.1, self.2])
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_into_point_impl() {
-        let _pt: Point = 0.1_f32.into_pt();
-        let _pt: Point = 0.1_f64.into_pt();
-        let _pt: Point = (0.5, 0.3).into_pt();
-        let _pt: Point = (1.0, -1.0).into_pt();
-        let _pt: Point = (1.0, 2.0, 3.0).into_pt();
-    }
-
-    #[test]
-    fn test_point_shapelike_impl() {
-        let p = (1.0, 2.0, 3.0).into_pt();
-
-        // check our basic functions work
-        assert_eq!(p.get_dimension(), 3);
-        assert_eq!(p.get_area(), 0.0);
-        assert_eq!(p.get_center(), p);
-
-        let q = Shape::Point((2.0, 3.0, 4.0).into_pt());
-
-        // the (minimum) distance between p and q is the square root of 3
-        assert_eq!(p.get_min_distance(&q), Ok(3.0_f64.sqrt()));
-    }
-}
