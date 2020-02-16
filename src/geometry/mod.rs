@@ -4,6 +4,8 @@ mod line_segment;
 mod point;
 mod region;
 mod shape;
+#[cfg(test)]
+mod tests;
 
 pub use line_segment::LineSegment;
 pub use point::Point;

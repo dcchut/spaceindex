@@ -16,6 +16,11 @@ impl Region {
     pub fn coordinates_iter(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.coordinates.iter().cloned()
     }
+
+    #[inline(always)]
+    pub fn from_points(a: &Point, b: &Point) -> Self {
+        Self::new(a.coordinate_iter().zip(b.coordinate_iter()).collect())
+    }
 }
 
 impl Shapelike for Region {

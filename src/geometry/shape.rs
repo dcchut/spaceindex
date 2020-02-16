@@ -48,14 +48,6 @@ impl Shapelike for Shape {
             Shape::Region(region) => region.get_min_distance(other),
         }
     }
-
-    fn intersects_shape(&self, other: &Shape) -> Result<bool, ShapelikeError> {
-        match self {
-            Shape::Point(point) => point.intersects_shape(other),
-            Shape::LineSegment(line) => line.intersects_shape(other),
-            Shape::Region(region) => region.intersects_shape(other),
-        }
-    }
 }
 
 impl Into<Shape> for Point {
