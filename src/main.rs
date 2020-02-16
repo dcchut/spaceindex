@@ -13,15 +13,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut rng = rand::thread_rng();
 
     let mut size_f = 600.0;
-
-    for _ in 0..20 {
+    for z in 0..40 {
         let xmin = rng.gen_range(0.0, 1400.0);
         let ymin = rng.gen_range(0.0, 500.0);
-        let height = rng.gen_range(5.0, size_f);
-        let width = rng.gen_range(5.0, size_f);
+        let height = rng.gen_range(15.0, size_f);
+        let width = rng.gen_range(15.0, size_f);
 
         // gradually get smaller
-        size_f *= 0.99;
+        if z >= 7 {
+            size_f = 100.0;
+        } else if z >= 20 {
+            size_f = 40.0;
+        }
 
         let r = ((xmin, ymin), (xmin + width, ymin + height)).into_region();
         tree.insert(r, 11)?;
@@ -30,9 +33,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // draw it all out
     let mut img = RgbImage::new(1920, 1080);
 
-    for (_, node) in tree.nodes.iter() {
-        render_node(&mut img, &tree, node, 0);
-    }
+    render_node(&mut img, &tree, &tree.nodes[tree.root], 0);
+
+    println!("{} root children", &tree.nodes[tree.root].child_count());
 
     img.save("output.png").unwrap();
 
@@ -103,20 +106,20 @@ fn draw_mbr<C: Canvas<Pixel = Rgb<u8>>>(canvas: &mut C, mbr: &Region, level: usi
     );
 }
 
-fn render_node<C: Canvas<Pixel = Rgb<u8>>>(
-    canvas: &mut C,
+fn render_node(
+    canvas: &mut RgbImage,
     tree: &RTree,
     node: &Node,
     level: usize,
 ) {
+    // and all leaves
+    for leaf in node.leaves.iter() {
+        draw_mbr(canvas, &leaf.region, level + 1);
+    }
+
     // now do all children
     for (_, child_node) in node.child_iter(tree) {
         render_node(canvas, tree, child_node, level + 1);
-    }
-
-    // and all leaves
-    for leaf in node.leaves.iter() {
-        draw_mbr(canvas, &leaf.region, level);
     }
 
     draw_mbr(canvas, &node.minimum_bounding_region, level);

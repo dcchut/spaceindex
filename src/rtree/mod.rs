@@ -10,7 +10,7 @@ pub struct RTree {
     /// Nodes are stored in a generational arena
     pub nodes: Arena<Node>,
 
-    root: Index,
+    pub root: Index,
 }
 
 impl RTree {
