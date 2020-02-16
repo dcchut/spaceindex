@@ -9,6 +9,7 @@ mod tests;
 
 pub use line_segment::LineSegment;
 pub use point::Point;
+pub use region::IntoRegion;
 pub use region::Region;
 pub use shape::Shape;
 

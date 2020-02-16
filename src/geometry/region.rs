@@ -6,7 +6,7 @@ use crate::geometry::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Region {
-    coordinates: Vec<(f64, f64)>,
+    pub coordinates: Vec<(f64, f64)>,
 }
 
 impl Region {

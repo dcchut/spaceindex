@@ -95,10 +95,10 @@ fn test_rtree_insert() -> Result<(), ShapelikeError> {
     let mut rng = rand::thread_rng();
 
     for _ in 0..50 {
-        let xmin = rng.gen_range(0.0, 50.0);
-        let ymin = rng.gen_range(0.0, 50.0);
-        let height = rng.gen_range(0.0, 50.0);
-        let width = rng.gen_range(0.0, 50.0);
+        let xmin = rng.gen_range(0.0, 100.0);
+        let ymin = rng.gen_range(0.0, 100.0);
+        let height = rng.gen_range(5.0, 10.0);
+        let width = rng.gen_range(5.0, 10.0);
 
         let r = ((xmin, ymin), (xmin + width, ymin + height)).into_region();
         tree.insert(r, 11)?;

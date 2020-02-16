@@ -2,8 +2,8 @@ use crate::geometry::{Region, Shapelike, ShapelikeError};
 use generational_arena::{Arena, Index};
 use std::collections::HashSet;
 
-const MAX_LEAVES: usize = 10;
-const MAX_CHILDREN: usize = 10;
+const MAX_LEAVES: usize = 4;
+const MAX_CHILDREN: usize = 4;
 
 #[derive(Debug)]
 pub struct RTree {
@@ -151,11 +151,11 @@ impl RTree {
         panic!("something weird happened");
     }
 
-    fn quadratic_partition<S, T: Fn(&S) -> &Region>(
+    fn quadratic_partition<'a, S>(
         &self,
-        nodes: Vec<S>,
-        get_region: T,
-    ) -> ((Vec<S>, Region), (Vec<S>, Region)) {
+        nodes: &'a [S],
+        get_region: impl Fn(&'a S) -> &Region,
+    ) -> (HashSet<usize>, Region, Region) {
         let mut worst_pair = None;
         let mut worst_area = -1.0;
 
@@ -184,7 +184,9 @@ impl RTree {
         unpicked_nodes.remove(&l1);
         unpicked_nodes.remove(&l2);
 
-        let mut group1 = vec![l1];
+        let mut group1 = HashSet::new();
+        group1.insert(l1);
+
         let mut left_mbr = get_region(&nodes[l1]).clone();
         let mut right_mbr = get_region(&nodes[l2]).clone();
 
@@ -214,7 +216,7 @@ impl RTree {
 
             if d1 < d2 {
                 // add to group 1
-                group1.push(best_index);
+                group1.insert(best_index);
                 left_mbr = left_mbr
                     .combine_region(get_region(&nodes[best_index]))
                     .expect("failed to combine leaves");
@@ -225,19 +227,22 @@ impl RTree {
             }
         }
 
-        // now put all group1 leaves on node, and all group2 leaves on the right node
-        let mut left_nodes = Vec::with_capacity(group1.len());
-        let mut right_nodes = Vec::with_capacity(nodes.len() - group1.len());
+        (group1, left_mbr, right_mbr)
+    }
 
-        for (index, node) in nodes.into_iter().enumerate() {
-            if group1.contains(&index) {
-                left_nodes.push(node);
+    fn assemble<S>(v: Vec<S>, left_indexes: HashSet<usize>) -> (Vec<S>, Vec<S>) {
+        let mut left = Vec::with_capacity(left_indexes.len());
+        let mut right = Vec::with_capacity(v.len() - left_indexes.len());
+
+        for (index, vs) in v.into_iter().enumerate() {
+            if left_indexes.contains(&index) {
+                left.push(vs);
             } else {
-                right_nodes.push(node);
+                right.push(vs);
             }
         }
 
-        ((left_nodes, left_mbr), (right_nodes, right_mbr))
+        (left, right)
     }
 
     // Consider a situation like this:
@@ -262,8 +267,9 @@ impl RTree {
         let mut leaves = Vec::new();
         std::mem::swap(&mut leaves, &mut node.leaves);
 
-        let ((left, left_mbr), (right, right_mbr)) =
-            self.quadratic_partition(leaves, |leaf| &leaf.region);
+        let (left, left_mbr, right_mbr) = self.quadratic_partition(&leaves, |leaf| &leaf.region);
+
+        let (left, right) = Self::assemble(leaves, left);
 
         let node = &mut self.nodes[index];
         node.minimum_bounding_region = left_mbr;
@@ -301,13 +307,11 @@ impl RTree {
         let mut children = Vec::with_capacity(2);
         std::mem::swap(&mut children, &mut node.children);
 
-        let ((left, left_mbr), (right, right_mbr)) = self.quadratic_partition(children, |index| {
-            unsafe {
-                // i'm not smart enough to figure out the correct lifetime annotations to get this to work
-                let ptr: *const Region = &self.nodes[*index].minimum_bounding_region;
-                ptr.as_ref().unwrap()
-            }
+        let (left, left_mbr, right_mbr) = self.quadratic_partition(&children, |index| {
+            &self.nodes[*index].minimum_bounding_region
         });
+
+        let (left, right) = Self::assemble(children, left);
 
         // add a new node for the left half
         let mut left_node = Node::new(left_mbr);
