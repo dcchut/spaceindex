@@ -89,7 +89,7 @@ fn test_combine_regions() {
 
 #[test]
 fn test_rtree_insert() -> Result<(), ShapelikeError> {
-    let (mut tree, root) = RTree::new(2);
+    let mut tree = RTree::new(2);
 
     // insert 50 random positions
     let mut rng = rand::thread_rng();
@@ -104,7 +104,7 @@ fn test_rtree_insert() -> Result<(), ShapelikeError> {
         tree.insert(r, 11)?;
     }
 
-    tree.validate_consistency(root);
+    tree.validate_consistency();
 
     dbg!(&tree);
 

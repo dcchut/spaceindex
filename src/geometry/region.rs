@@ -44,6 +44,7 @@ impl Region {
     }
 
     /// Combines this region with another region `other`.
+    #[inline(always)]
     pub fn combine_region(&self, other: &Region) -> Result<Region, ShapelikeError> {
         check_dimensions_match(self, other)?;
 
@@ -55,6 +56,19 @@ impl Region {
                 })
                 .collect(),
         ))
+    }
+
+    /// Combines this region with another region `other` in place.
+    #[inline(always)]
+    pub fn combine_region_in_place(&mut self, other: &Region) {
+        check_dimensions_match(self, other).unwrap();
+
+        for ((s_low, s_high), (o_low, o_high)) in
+            self.coordinates.iter_mut().zip(other.coordinates_iter())
+        {
+            *s_low = f64::min(*s_low, o_low);
+            *s_high = f64::max(*s_high, o_high);
+        }
     }
 }
 
@@ -76,6 +90,7 @@ impl Shapelike for Region {
         self.clone()
     }
 
+    #[inline(always)]
     fn get_area(&self) -> f64 {
         let mut area = 1.0;
 
