@@ -115,7 +115,7 @@ fn draw_mbr<C: Canvas<Pixel = Rgb<u8>>>(canvas: &mut C, mbr: &Region, level: usi
     let (x0, x1) = mbr.coordinates[0];
     let (y0, y1) = mbr.coordinates[1];
 
-    for thickness in 0..3 {
+    for thickness in 0..1 {
         draw_line(
             canvas,
             level,

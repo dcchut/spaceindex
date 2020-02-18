@@ -2,16 +2,12 @@ use std::collections::HashSet;
 
 use generational_arena::{Arena, Index};
 
-use crate::geometry::{Region, Shapelike, ShapelikeError};
+use crate::geometry::{IntoRegion, Region, Shapelike, ShapelikeError};
 
 mod node;
 pub mod rendering;
 
 pub use node::Node;
-
-// completely scientific values
-const MIN_CHILDREN: usize = 2;
-const MAX_CHILDREN: usize = 8;
 
 #[derive(Debug)]
 pub struct RTree {
@@ -20,6 +16,12 @@ pub struct RTree {
 
     /// The index of the root node of this tree.
     root: Index,
+
+    /// The minimum number of children a node can have
+    min_children: usize,
+
+    /// The maximum number of children a node can have
+    max_children: usize,
 }
 
 impl RTree {
@@ -28,10 +30,9 @@ impl RTree {
     /// # Example
     /// ```rust
     /// use spaceindex::rtree::RTree;
-    /// use spaceindex::geometry::IntoRegion;
     ///
     /// let mut tree = RTree::new(2);
-    /// tree.insert(((0.0, 0.0), (2.0, 4.0)).into_region(), 1);
+    /// tree.insert(((0.0, 0.0), (2.0, 4.0)), 1);
     ///
     /// # tree.validate_consistency();
     /// ```
@@ -44,9 +45,12 @@ impl RTree {
             Node::new_internal_node(Region::infinite(dimension), Some(root_index));
         let root_child_index = nodes.insert(root_child_node);
 
+        // TODO: figure out a better way to pass through min/max children here (maybe some sort of builder?)
         Self {
             nodes,
             root: root_child_index,
+            min_children: 2,
+            max_children: 8,
         }
     }
 
@@ -58,16 +62,19 @@ impl RTree {
     /// # Example
     /// ```rust
     /// use spaceindex::rtree::RTree;
-    /// use spaceindex::geometry::IntoRegion;
     ///
     /// let mut tree = RTree::new(2);
-    /// tree.insert(((-1.0, 0.0), (3.0, 3.0)).into_region(), 0);
+    /// tree.insert(((-1.0, 0.0), (3.0, 3.0)), 0);
     ///
     /// # tree.validate_consistency();
     /// ```
-    pub fn insert(&mut self, region: Region, object: usize) -> Result<(), ShapelikeError> {
+    pub fn insert<IR: IntoRegion>(
+        &mut self,
+        region: IR,
+        object: usize,
+    ) -> Result<(), ShapelikeError> {
         // The internal `root` node always contains everything.
-        self.insert_at_node(region, object, self.root)
+        self.insert_at_node(region.into_region(), object, self.root)
     }
 
     /// Inserts a node into our tree at the given position.
@@ -89,7 +96,7 @@ impl RTree {
         }
 
         // If this node node has too many children, split it.
-        if self.get_node(index).child_count() >= MAX_CHILDREN {
+        if self.get_node(index).child_count() >= self.max_children {
             self.split_node(index);
         }
     }
@@ -209,7 +216,7 @@ impl RTree {
         unpicked_children.remove(&ix2);
 
         // Keep track of nodes in the first group
-        let mut group1 = Vec::with_capacity(MAX_CHILDREN - MIN_CHILDREN);
+        let mut group1 = Vec::with_capacity(self.max_children - self.min_children);
         group1.push(ix1);
 
         // Keep track of the minimum bounding regions for the first and second group
@@ -220,9 +227,9 @@ impl RTree {
         // we find the unpicked node
         // If one of the groups gets too large, stop.
         while !unpicked_children.is_empty()
-            && group1.len() < MAX_CHILDREN - MIN_CHILDREN
+            && group1.len() < self.max_children - self.min_children
             && (children.len() - group1.len() - unpicked_children.len())
-                < MAX_CHILDREN - MIN_CHILDREN
+                < self.max_children - self.min_children
         {
             let mut best_d = std::f64::MAX;
             let mut best_index = None;
@@ -268,7 +275,7 @@ impl RTree {
         }
 
         if !unpicked_children.is_empty() {
-            if group1.len() < MIN_CHILDREN {
+            if group1.len() < self.min_children {
                 // rest of the unpicked children go in group 1
                 for child_index in unpicked_children {
                     group1_mbr.combine_region_in_place(self.nodes[children[child_index]].region());
@@ -350,8 +357,8 @@ impl RTree {
         let (left, right, left_mbr, right_mbr) = self.quadratic_partition(children);
 
         // check that everything has the correct size
-        debug_assert!(left.len() >= MIN_CHILDREN);
-        debug_assert!(right.len() >= MIN_CHILDREN);
+        debug_assert!(left.len() >= self.min_children);
+        debug_assert!(right.len() >= self.min_children);
 
         // If we're splitting the root node, collect all children of the root node into two groups
         // which will be our new root children.
@@ -414,7 +421,7 @@ impl RTree {
             // whose parent attribute is set to `Some(parent)`.
             unsafe { self.get_node_mut(parent).add_child_unsafe(right_index) };
 
-            if self.nodes[parent].child_count() >= MAX_CHILDREN {
+            if self.nodes[parent].child_count() >= self.max_children {
                 self.split_node(parent);
             }
         }

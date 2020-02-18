@@ -159,6 +159,12 @@ pub trait IntoRegion {
     fn into_region(self) -> Region;
 }
 
+impl IntoRegion for Region {
+    fn into_region(self) -> Region {
+        self
+    }
+}
+
 impl IntoRegion for (f64, f64) {
     fn into_region(self) -> Region {
         Region::new(vec![(self.0, self.1)])

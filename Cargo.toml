@@ -1,6 +1,6 @@
 [package]
 name = "spaceindex"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Robert Usher <266585+dcchut@users.noreply.github.com>"]
 edition = "2018"
 description = "spaceindex"
@@ -15,3 +15,4 @@ rand = "0.7"
 imageproc = "0.19"
 image = "0.22"
 rustc-ap-graphviz = "643.0"
+anyhow = "1.0"

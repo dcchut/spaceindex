@@ -1,8 +1,6 @@
-use std::error::Error;
-
+use anyhow::Result;
 use rand::Rng;
 
-use spaceindex::geometry::IntoRegion;
 use spaceindex::rtree::rendering::graphviz::render_gviz;
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
 use spaceindex::rtree::RTree;
@@ -11,7 +9,7 @@ const RENDER_WIDTH: u32 = 1920;
 const RENDER_HEIGHT: u32 = 1080;
 const MAX_REGION_SIDE_LENGTH: f64 = 300.0;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     // Generate some random points to fill in our tree
     let mut tree = RTree::new(2);
     let mut rng = rand::thread_rng();
@@ -22,7 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let height = rng.gen_range(0.1, MAX_REGION_SIDE_LENGTH);
         let width = rng.gen_range(0.1, MAX_REGION_SIDE_LENGTH);
 
-        let r = ((xmin, ymin), (xmin + width, ymin + height)).into_region();
+        let r = ((xmin, ymin), (xmin + width, ymin + height));
         tree.insert(r, 11)?;
     }
 
