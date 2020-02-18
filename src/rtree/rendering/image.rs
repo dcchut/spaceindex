@@ -4,7 +4,8 @@ use image::{Rgb, RgbImage};
 use imageproc::drawing::{draw_line_segment_mut, Canvas};
 
 use crate::geometry::Region;
-use crate::rtree::{Node, RTree};
+use crate::rtree::RTree;
+use generational_arena::Index;
 
 pub struct TreeRenderOptions {
     width: u32,
@@ -33,21 +34,21 @@ impl TreeRenderOptions {
         self
     }
 
-    pub fn draw_tree<P: AsRef<Path>>(&self, filename: P, tree: &RTree, node: &Node) {
-        draw_tree(filename, tree, node, self);
+    pub fn draw_tree<P: AsRef<Path>>(&self, filename: P, tree: &RTree, index: Index) {
+        draw_tree(filename, tree, index, self);
     }
 }
 
 pub fn draw_tree<P: AsRef<Path>>(
     filename: P,
     tree: &RTree,
-    node: &Node,
+    index: Index,
     options: &TreeRenderOptions,
 ) {
     let mut img = RgbImage::new(options.width, options.height);
     let mut dirty = false;
 
-    render_node(&mut img, &mut dirty, tree, node, 0, options.threshold);
+    render_node(&mut img, &mut dirty, tree, index, 0, options.threshold);
 
     // only render an image if theres actually something to render
     if dirty {
@@ -61,7 +62,7 @@ fn render_node(
     canvas: &mut RgbImage,
     dirty: &mut bool,
     tree: &RTree,
-    node: &Node,
+    index: Index,
     level: usize,
     threshold: Option<usize>,
 ) {
@@ -73,15 +74,15 @@ fn render_node(
     }
 
     // Render all children of this node
-    for (_, child_node) in node.child_iter(tree) {
-        render_node(canvas, dirty, tree, child_node, level + 1, threshold);
+    for child_index in tree.get_node(index).child_index_iter() {
+        render_node(canvas, dirty, tree, child_index, level + 1, threshold);
     }
 
     // If we don't have a threshold our we are at the given threshold, render
     // the MBR for this ode.
     if threshold.is_none() || threshold == Some(level) {
         *dirty = true;
-        draw_mbr(canvas, node.region(), level);
+        draw_mbr(canvas, tree.get_node(index).region(), level);
     }
 }
 

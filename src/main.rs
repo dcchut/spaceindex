@@ -34,13 +34,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut render_options = TreeRenderOptions::new(1920, 1080);
 
     // draw out each child of the root node layer-by-layer
-    for (ix, (_, child_node)) in tree.nodes[tree.root].child_iter(&tree).enumerate() {
+    for (ix, child_index) in tree.root_node().child_index_iter().enumerate() {
         // draw it all out
         for threshold in 0..5 {
             render_options.with_threshold(threshold).draw_tree(
                 format!("Tree_C{}_T{}.png", ix, threshold),
                 &tree,
-                child_node,
+                child_index,
             );
         }
     }
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // do a global rendering
     render_options
         .without_threshold()
-        .draw_tree("Tree.png", &tree, tree.root_node());
+        .draw_tree("Tree.png", &tree, tree.root_index());
 
     println!(
         "{} children of the root node",

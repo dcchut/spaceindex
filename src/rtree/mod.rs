@@ -4,7 +4,10 @@ use generational_arena::{Arena, Index};
 
 use crate::geometry::{Region, Shapelike, ShapelikeError};
 
+mod node;
 pub mod rendering;
+
+pub use node::Node;
 
 // completely scientific values
 const MIN_CHILDREN: usize = 2;
@@ -12,36 +15,26 @@ const MAX_CHILDREN: usize = 8;
 
 #[derive(Debug)]
 pub struct RTree {
-    /// Nodes are stored in a generational arena
-    pub nodes: Arena<Node>,
+    /// Nodes are stored in a generational arena.
+    nodes: Arena<Node>,
 
-    pub root: Index,
+    /// The index of the root node of this tree.
+    root: Index,
 }
 
 impl RTree {
-    fn _validate_consistency(&self, index: Index) {
-        let node = &self.nodes[index];
-
-        // are all children of this node contained in the MBR of this node?
-        for (_, child_node) in node.child_iter(self) {
-            assert_eq!(
-                node.minimum_bounding_region
-                    .contains_region(&child_node.minimum_bounding_region),
-                Ok(true)
-            );
-        }
-
-        // validate all children of this node
-        for child_index in node.children.iter() {
-            self._validate_consistency(*child_index);
-        }
-    }
-
-    pub fn validate_consistency(&self) {
-        self._validate_consistency(self.root)
-    }
-
-    /// Creates a new [`RTree`]
+    /// Creates a new [`RTree`] with the given number of dimensions.
+    ///
+    /// # Example
+    /// ```rust
+    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::geometry::IntoRegion;
+    ///
+    /// let mut tree = RTree::new(2);
+    /// tree.insert(((0.0, 0.0), (2.0, 4.0)).into_region(), 1);
+    ///
+    /// # tree.validate_consistency();
+    /// ```
     pub fn new(dimension: usize) -> Self {
         let node = Node::new_internal_node(Region::infinite(dimension), None);
         let mut nodes = Arena::new();
@@ -57,36 +50,51 @@ impl RTree {
         }
     }
 
-    /// Inserts a node into our tree at the given position.
-    fn _insert(&mut self, region: Region, index: Index) {
-        // Parent node should always contain the input region
-        assert_eq!(
-            self.nodes[index]
-                .minimum_bounding_region
-                .contains_region(&region),
-            Ok(true)
-        );
-
-        // enlarge the existing MBR
-        //self.nodes[index].minimum_bounding_region.combine_region_in_place(&region);
-
-        // add a new leaf as a child of this node
-        let leaf_node = Node::new_leaf(region, Some(index));
-        let leaf_index = self.nodes.insert(leaf_node);
-
-        self.nodes[index].children.push(leaf_index);
-
-        if self.nodes[index].child_count() >= MAX_CHILDREN {
-            self.split_node(index);
-        }
-    }
-
     /// Attempts to insert a given object into the tree.
+    ///
+    /// # Errors
+    /// This function will return an error if `region` does not have the same dimension as this tree.
+    ///
+    /// # Example
+    /// ```rust
+    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::geometry::IntoRegion;
+    ///
+    /// let mut tree = RTree::new(2);
+    /// tree.insert(((-1.0, 0.0), (3.0, 3.0)).into_region(), 0);
+    ///
+    /// # tree.validate_consistency();
+    /// ```
     pub fn insert(&mut self, region: Region, object: usize) -> Result<(), ShapelikeError> {
         // The internal `root` node always contains everything.
         self.insert_at_node(region, object, self.root)
     }
 
+    /// Inserts a node into our tree at the given position.
+    fn _insert(&mut self, region: Region, index: Index) {
+        // Parent node should always contain the input region
+        assert_eq!(
+            self.nodes[index].region().contains_region(&region),
+            Ok(true)
+        );
+
+        // add a new leaf as a child of this node
+        let leaf_node = Node::new_leaf(region, Some(index));
+        let leaf_index = self.nodes.insert(leaf_node);
+
+        // This call is safe as `leaf_index` has their parent attribute set to `Some(index)`, i.e.
+        // the index of the current node, and the child node is contained in this tree.
+        unsafe {
+            self.get_node_mut(index).add_child_unsafe(leaf_index);
+        }
+
+        // If this node node has too many children, split it.
+        if self.get_node(index).child_count() >= MAX_CHILDREN {
+            self.split_node(index);
+        }
+    }
+
+    /// Recursively searches for the internal node whose minimum bounding region contains `region`.
     fn insert_at_node(
         &mut self,
         region: Region,
@@ -106,11 +114,8 @@ impl RTree {
         // Does any child of this node have an MBR containing our input region?
         let mut child_containing_region = None;
 
-        'mbr_search: for (child_index, child_node) in node.child_iter(self) {
-            if child_node
-                .minimum_bounding_region
-                .contains_region(&region)?
-            {
+        'mbr_search: for (child_index, child_node) in self.child_iter(index) {
+            if child_node.region().contains_region(&region)? {
                 child_containing_region = Some(child_index);
                 break 'mbr_search;
             }
@@ -124,13 +129,13 @@ impl RTree {
         // Otherwise there is no child MBR containing our input `region`.  Thus find
         // the bounding box in this node such that enlarging it to contain
         // `minimum_bounding_region` will add the least amount of area.
-        if let Some((_, combined_region, child_index)) = node
-            .child_iter(self)
+        if let Some((_, combined_region, child_index)) = self
+            .child_iter(index)
             .map(|(child_index, child_node)| {
-                let initial_area = child_node.minimum_bounding_region.get_area();
+                let initial_area = child_node.region().get_area();
                 // TODO: figure out a better error handling path here (perhaps use `filter_map`)
                 let combined_region = child_node
-                    .minimum_bounding_region
+                    .region()
                     .combine_region(&region)
                     .expect("Failed to combine regions");
                 (
@@ -144,8 +149,12 @@ impl RTree {
                 f64::partial_cmp(left_change, right_change).unwrap()
             })
         {
-            // Enlarge `child_index`'s bounding box
-            self.nodes[child_index].minimum_bounding_region = combined_region;
+            // Enlarge `child_index`'s bounding box.  This call is safe as `combined_region`
+            // is enlarged from the MBR of the child node.
+            unsafe {
+                self.get_node_mut(child_index)
+                    .set_minimum_bounding_region_unsafe(combined_region);
+            }
 
             // Since the enlarged bounding box now contains our object, recurse into that subtree
             return self.insert_at_node(region, object, child_index);
@@ -188,6 +197,7 @@ impl RTree {
         worst_pair.unwrap()
     }
 
+    /// Splits a vector of nodes into two groups using the QuadraticSplit algorithm.
     fn quadratic_partition(
         &self,
         children: Vec<Index>,
@@ -277,6 +287,8 @@ impl RTree {
         (group1, group2, group1_mbr, group2_mbr)
     }
 
+    /// Splits a vector `v` into two vectors, with the first vector containing all elements
+    /// of `v` whose indexes are in `left_indexes`, and the second vector containing the rest.
     fn assemble<S>(v: Vec<S>, left_indexes: HashSet<usize>) -> (Vec<S>, Vec<S>) {
         let mut left = Vec::with_capacity(left_indexes.len());
         let mut right = Vec::with_capacity(v.len() - left_indexes.len());
@@ -292,13 +304,49 @@ impl RTree {
         (left, right)
     }
 
+    /// Collects an iterator of children into the `children` vec of the node corresponding to `index`,
+    /// ensuring that the `parent` attribute of the corresponding node in the tree is set appropriately.
+    ///
+    /// # Panics
+    /// This function will panic if:
+    /// - The node correspoding to `index` already has children, or
+    /// - `index` does not refer to a node in `self`, or
+    /// - Any index in `children` does not refer to a node in `self`.
+    /// - `index` appears in `children`
+    pub(crate) fn set_children_safe(
+        &mut self,
+        index: Index,
+        children: impl IntoIterator<Item = Index>,
+    ) {
+        // get a mutable reference to the current node
+        let node = unsafe { (&mut self.nodes[index] as *mut Node).as_mut().unwrap() };
+
+        // Make sure we don't have any children
+        assert!(!node.has_children());
+
+        // Make sure `index` exists in our tree
+        assert!(self.nodes.contains(index));
+
+        for child_index in children {
+            assert_ne!(index, child_index);
+
+            // set the parent of the child node to be `Some(index)`.
+            self.nodes[child_index].set_parent(index);
+
+            // This is fine because `child_index` refers to a node in this tree whose parent
+            // attribute is set to `Some(index)`, as required.
+            unsafe {
+                node.add_child_unsafe(child_index);
+            }
+        }
+    }
+
+    /// Splits the overfull node corresponding to `index`.
     fn split_node(&mut self, index: Index) {
-        // take ownership of the children of the current node
-        let mut children = Vec::new();
-        std::mem::swap(&mut children, &mut self.nodes[index].children);
+        // Get all of the children of the current node
+        let children = self.get_node_mut(index).clear_children();
 
         // Partition the leave indexes using the QuadraticSplit strategy
-        // TODO: parametrize this strategy
         let (left, right, left_mbr, right_mbr) = self.quadratic_partition(children);
 
         // check that everything has the correct size
@@ -316,40 +364,22 @@ impl RTree {
             // insert a new left node
             let left_node = Node::new_internal_node(left_mbr, Some(index));
             let left_index = self.nodes.insert(left_node);
-
-            // mark the left node as the parent of all of its children
-            for left_child_index in left.iter() {
-                self.nodes[*left_child_index].parent = Some(left_index);
-
-                // left node MBR should always contain all of its children
-                debug_assert_eq!(
-                    self.nodes[left_index]
-                        .minimum_bounding_region
-                        .contains_region(&self.nodes[*left_child_index].minimum_bounding_region),
-                    Ok(true)
-                );
-            }
-
-            self.nodes[left_index].children = left;
+            self.set_children_safe(left_index, left);
 
             // insert a new right node
             let right_node = Node::new_internal_node(right_mbr, Some(index));
             let right_index = self.nodes.insert(right_node);
+            self.set_children_safe(right_index, right);
 
-            // mark the right node as the parent of all its children
-            for right_child_index in right.iter() {
-                self.nodes[*right_child_index].parent = Some(right_index);
-
-                //                assert_eq!(self.nodes[right_index]
-                //                               .minimum_bounding_region
-                //                               .contains_region(&self.nodes[*right_child_index].minimum_bounding_region),
-                //                           Ok(true));
+            // This call is safe because:
+            // - The current node has no children,
+            // - The nodes corresponding to `left_index` and `right_index` both have their `parent`
+            //   attribute set to `Some(index)`, i.e. the index of the current node.
+            unsafe {
+                // Add the left and right nodes as children of the current node.
+                self.get_node_mut(index)
+                    .set_children_unsafe(vec![left_index, right_index]);
             }
-
-            self.nodes[right_index].children = right;
-
-            // add the left and right nodes as children of the current node
-            self.nodes[index].children = vec![left_index, right_index];
         } else {
             // Otherwise we apply the transformation:
             //
@@ -359,27 +389,30 @@ impl RTree {
             //     / | \          /  \    /  \
             //    /  |  \        /    \  /    \
             //
-            let parent = self.nodes[index].parent.unwrap();
+            let parent = self.get_node(index).get_parent().unwrap();
 
             // the current node will become our new left node
-            let left_node = &mut self.nodes[index];
-            left_node.minimum_bounding_region = left_mbr;
-            left_node.children = left;
+            let left_node = self.get_node_mut(index);
+
+            // This is safe as `left_node` has no children, and all of the children
+            // in `left` already have their parent attribute set to `Some(index)`.
+            // Finally, all of the children are contained in `left_mbr` by its construction.
+            unsafe {
+                left_node.set_minimum_bounding_region_unsafe(left_mbr);
+                left_node.set_children_unsafe(left);
+            };
 
             // make a new empty right node
             let right_index = self
                 .nodes
                 .insert(Node::new_internal_node(right_mbr, Some(parent)));
 
-            // mark the right node as the parent of all its children
-            for right_child_index in right.iter() {
-                self.nodes[*right_child_index].parent = Some(right_index);
-            }
+            // add the right as children (safely) of the right node
+            self.set_children_safe(right_index, right.iter().cloned());
 
-            self.nodes[right_index].children = right;
-
-            // add the right node as a child of the parent node
-            self.nodes[parent].children.push(right_index);
+            // This `unsafe` call is fine here because `right_index` refers to a node in this tree
+            // whose parent attribute is set to `Some(parent)`.
+            unsafe { self.get_node_mut(parent).add_child_unsafe(right_index) };
 
             if self.nodes[parent].child_count() >= MAX_CHILDREN {
                 self.split_node(parent);
@@ -387,28 +420,84 @@ impl RTree {
         }
     }
 
+    /// Validates the consistency of the tree.  In particular, this function checks that:
+    ///
+    /// - Every child is contained in the minimum bounding region of its parent, and
+    /// - The total number of descendants of the root node is equal to the number
+    ///   of nodes in the tree minus two.
+    pub fn validate_consistency(&self) {
+        let mut node_counter = 0;
+
+        self._validate_consistency(self.root, &mut node_counter);
+
+        // check we have the expected number of nodes.  The +1 is for the hidden super-root
+        // node which we won't talk about.
+        assert_eq!(node_counter + 1, self.nodes.len());
+    }
+
+    /// Recursively validates that the children of each node are contained in the MBR
+    /// of their parent.
+    fn _validate_consistency(&self, index: Index, node_counter: &mut usize) {
+        let node = &self.nodes[index];
+
+        // increment the node counter
+        *node_counter += 1;
+
+        // are all children of this node contained in the MBR of this node?
+        for (_, child_node) in self.child_iter(index) {
+            assert_eq!(node.region().contains_region(child_node.region()), Ok(true));
+        }
+
+        // validate all children of this node
+        for child_index in node.child_index_iter() {
+            self._validate_consistency(child_index, node_counter);
+        }
+    }
+
+    /// Returns an iterator over pairs `(Index, &Node)` corresponding to the nodes in this tree.
     pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node)> {
         self.nodes.iter()
     }
 
+    /// Returns an iterator of pairs `(Index, &Node)` of children of the node corresponding to the
+    /// given `index`.
+    ///
+    /// # Panics
+    /// This function will panic if `index` does not refer to a node in this tree.
+    pub fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node)> + '_ {
+        self.nodes[index]
+            .child_index_iter()
+            .map(move |index| (index, self.get_node(index)))
+    }
+
+    /// Returns a reference to the [`Node`] with index `index`.
+    ///
+    /// # Panics
+    /// This function will panic if `index` does not refer to a node in this tree.
     pub fn get_node(&self, index: Index) -> &Node {
         &self.nodes[index]
     }
 
+    /// Returns a mutable reference to the [`Node`] with index `index.
+    ///
+    /// # Panics
+    /// This function will panic if `index` does not refer to a node in this tree.
     pub fn get_node_mut(&mut self, index: Index) -> &mut Node {
         &mut self.nodes[index]
     }
 
-    fn _collect_edges(&self, buffer: &mut Vec<(Index, Index)>, index: Index) {
-        // extend buffer with all edges from the current node
-        let node = self.get_node(index);
-
-        for child_index in node.child_index_iter() {
-            buffer.push((index, child_index));
-            self._collect_edges(buffer, child_index);
-        }
+    /// Returns a reference to the root [`Node`] in this tree.
+    pub fn root_node(&self) -> &Node {
+        &self.nodes[self.root]
     }
 
+    /// Returns the index of the root node in this tree.
+    pub fn root_index(&self) -> Index {
+        self.root
+    }
+
+    /// Returns a vector of pairs `(Index, Index)` corresponding to all edges in this tree.
+    /// The edges are always of the form `(Parent, Child)`.
     pub fn collect_edges(&self) -> Vec<(Index, Index)> {
         // collect all edges in the tree
         let mut edges = Vec::new();
@@ -417,91 +506,14 @@ impl RTree {
         edges
     }
 
-    pub fn root_node(&self) -> &Node {
-        &self.nodes[self.root]
-    }
-}
+    /// Recursively extends `buffer` with all children of the given node.
+    fn _collect_edges(&self, buffer: &mut Vec<(Index, Index)>, index: Index) {
+        // extend buffer with all edges from the current node
+        let node = self.get_node(index);
 
-#[derive(Debug)]
-pub struct Node {
-    /// The minimum bounding region enclosing all data contained in this node
-    pub minimum_bounding_region: Region,
-
-    /// Children of this node
-    pub children: Vec<Index>,
-
-    /// Is this a leaf node?
-    pub is_leaf: bool,
-
-    /// The index of the parent node
-    pub parent: Option<Index>,
-}
-
-impl Node {
-    fn new(
-        minimum_bounding_region: Region,
-        children: Vec<Index>,
-        is_leaf: bool,
-        parent: Option<Index>,
-    ) -> Self {
-        Self {
-            minimum_bounding_region,
-            children,
-            is_leaf,
-            parent,
+        for child_index in node.child_index_iter() {
+            buffer.push((index, child_index));
+            self._collect_edges(buffer, child_index);
         }
-    }
-
-    pub fn new_internal_node(minimum_bounding_region: Region, parent: Option<Index>) -> Self {
-        Self::new(minimum_bounding_region, Vec::new(), false, parent)
-    }
-
-    pub fn new_leaf(minimum_bounding_region: Region, parent: Option<Index>) -> Self {
-        Self::new(minimum_bounding_region, Vec::new(), true, parent)
-    }
-
-    pub fn is_leaf(&self) -> bool {
-        self.is_leaf
-    }
-
-    /// Are any (direct) children of this node a leaf?
-    pub fn has_leaf_child(&self, tree: &RTree) -> bool {
-        for child_index in self.children.iter() {
-            if tree.nodes[*child_index].is_leaf() {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    /// Does this node have any children?
-    pub fn has_children(&self) -> bool {
-        !self.children.is_empty()
-    }
-
-    /// How many direct children does this node have?
-    pub fn child_count(&self) -> usize {
-        self.children.len()
-    }
-
-    /// Get the minimum bounding region of this node
-    pub fn region(&self) -> &Region {
-        &self.minimum_bounding_region
-    }
-
-    pub fn child_index_iter(&self) -> impl Iterator<Item = Index> + '_ {
-        self.children.iter().cloned()
-    }
-
-    pub fn child_iter<'s, 't, 'g>(
-        &'s self,
-        tr: &'t RTree,
-    ) -> impl Iterator<Item = (Index, &'t Node)> + 'g
-    where
-        's: 'g,
-        't: 'g,
-    {
-        self.children.iter().map(move |ix| (*ix, &tr.nodes[*ix]))
     }
 }

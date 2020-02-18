@@ -3,7 +3,6 @@ use std::path::Path;
 
 use generational_arena::Index;
 use rustc_ap_graphviz as dot;
-use rustc_ap_graphviz::Id;
 
 use crate::rtree::RTree;
 
@@ -14,11 +13,11 @@ impl<'a> dot::Labeller<'a> for RTree {
     type Node = Nd;
     type Edge = Ed;
 
-    fn graph_id(&'a self) -> Id<'a> {
+    fn graph_id(&'a self) -> dot::Id<'a> {
         dot::Id::new("rtree").unwrap()
     }
 
-    fn node_id(&'a self, n: &Self::Node) -> Id<'a> {
+    fn node_id(&'a self, n: &Self::Node) -> dot::Id<'a> {
         let node = self.get_node(*n);
 
         dot::Id::new(format!("N{}_{}", n.into_raw_parts().0, node.child_count())).unwrap()
