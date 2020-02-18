@@ -1,17 +1,17 @@
 use thiserror::Error;
 
+pub use line_segment::LineSegment;
+pub use point::Point;
+pub use region::IntoRegion;
+pub use region::Region;
+pub use shape::Shape;
+
 mod line_segment;
 mod point;
 mod region;
 mod shape;
 #[cfg(test)]
 mod tests;
-
-pub use line_segment::LineSegment;
-pub use point::Point;
-pub use region::IntoRegion;
-pub use region::Region;
-pub use shape::Shape;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ShapelikeError {

@@ -1,7 +1,12 @@
-use crate::geometry::{Region, Shapelike, ShapelikeError};
-use generational_arena::{Arena, Index};
 use std::collections::HashSet;
 
+use generational_arena::{Arena, Index};
+
+use crate::geometry::{Region, Shapelike, ShapelikeError};
+
+pub mod rendering;
+
+// completely scientific values
 const MIN_CHILDREN: usize = 2;
 const MAX_CHILDREN: usize = 8;
 
@@ -381,6 +386,40 @@ impl RTree {
             }
         }
     }
+
+    pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node)> {
+        self.nodes.iter()
+    }
+
+    pub fn get_node(&self, index: Index) -> &Node {
+        &self.nodes[index]
+    }
+
+    pub fn get_node_mut(&mut self, index: Index) -> &mut Node {
+        &mut self.nodes[index]
+    }
+
+    fn _collect_edges(&self, buffer: &mut Vec<(Index, Index)>, index: Index) {
+        // extend buffer with all edges from the current node
+        let node = self.get_node(index);
+
+        for child_index in node.child_index_iter() {
+            buffer.push((index, child_index));
+            self._collect_edges(buffer, child_index);
+        }
+    }
+
+    pub fn collect_edges(&self) -> Vec<(Index, Index)> {
+        // collect all edges in the tree
+        let mut edges = Vec::new();
+        self._collect_edges(&mut edges, self.root);
+
+        edges
+    }
+
+    pub fn root_node(&self) -> &Node {
+        &self.nodes[self.root]
+    }
 }
 
 #[derive(Debug)]
@@ -449,6 +488,10 @@ impl Node {
     /// Get the minimum bounding region of this node
     pub fn region(&self) -> &Region {
         &self.minimum_bounding_region
+    }
+
+    pub fn child_index_iter(&self) -> impl Iterator<Item = Index> + '_ {
+        self.children.iter().cloned()
     }
 
     pub fn child_iter<'s, 't, 'g>(

@@ -1,8 +1,9 @@
+use rand::Rng;
+
 use crate::geometry::point::IntoPoint;
 use crate::geometry::region::IntoRegion;
 use crate::geometry::{LineSegment, Point, Region, Shape, Shapelike, ShapelikeError};
 use crate::rtree::RTree;
-use rand::Rng;
 
 #[test]
 fn test_line_intersections() {
