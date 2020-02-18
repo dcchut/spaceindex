@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use generational_arena::{Arena, Index};
 
-use crate::geometry::{IntoRegion, Region, Shapelike, ShapelikeError, IntoPoint, Point, Shape, LineSegment};
+use crate::geometry::{
+    IntoPoint, IntoRegion, LineSegment, Point, Region, Shape, Shapelike, ShapelikeError,
+};
 
 mod node;
 pub mod rendering;
@@ -42,14 +44,10 @@ impl<ND> RTree<ND> {
         let mut nodes = Arena::new();
         let root_index = nodes.insert(node);
 
-        let root_child_node =
-            Node::new_internal_node(Region::infinite(dimension), Some(root_index));
-        let root_child_index = nodes.insert(root_child_node);
-
         // TODO: figure out a better way to pass through min/max children here (maybe some sort of builder?)
         Self {
             nodes,
-            root: root_child_index,
+            root: root_index,
             min_children: 2,
             max_children: 8,
         }
@@ -71,6 +69,22 @@ impl<ND> RTree<ND> {
     /// ```
     #[inline(always)]
     pub fn insert<IR: IntoRegion>(&mut self, region: IR, data: ND) -> Result<(), ShapelikeError> {
+        let region = region.into_region();
+
+        // If we only have the root node, then set the MBR of the root node to be our input region.
+        if self.nodes.len() == 1 {
+            // This call is fine because the root node currently has no children.
+            unsafe {
+                self.get_node_mut(self.root)
+                    .set_minimum_bounding_region_unsafe(region.clone())
+            }
+        } else {
+            // Otherwise extend the MBR of the root node by the input region
+            self.get_node_mut(self.root)
+                .get_region_mut()
+                .combine_region_in_place(&region);
+        }
+
         // The internal `root` node always contains everything.
         self.insert_at_node(region.into_region(), data, self.root)
     }
@@ -80,7 +94,7 @@ impl<ND> RTree<ND> {
     fn _insert(&mut self, region: Region, data: ND, index: Index) {
         // Parent node should always contain the input region
         assert_eq!(
-            self.nodes[index].region().contains_region(&region),
+            self.nodes[index].get_region().contains_region(&region),
             Ok(true)
         );
 
@@ -122,7 +136,7 @@ impl<ND> RTree<ND> {
         let mut child_containing_region = None;
 
         'mbr_search: for (child_index, child_node) in self.child_iter(index) {
-            if child_node.region().contains_region(&region)? {
+            if child_node.get_region().contains_region(&region)? {
                 child_containing_region = Some(child_index);
                 break 'mbr_search;
             }
@@ -139,10 +153,10 @@ impl<ND> RTree<ND> {
         if let Some((_, combined_region, child_index)) = self
             .child_iter(index)
             .map(|(child_index, child_node)| {
-                let initial_area = child_node.region().get_area();
+                let initial_area = child_node.get_region().get_area();
                 // TODO: figure out a better error handling path here (perhaps use `filter_map`)
                 let combined_region = child_node
-                    .region()
+                    .get_region()
                     .combine_region(&region)
                     .expect("Failed to combine regions");
                 (
@@ -184,11 +198,11 @@ impl<ND> RTree<ND> {
 
         // find the two leaves of this node that would be the most terrible together
         for (l1_index, node1) in leaves.iter().enumerate() {
-            let r1 = &self.nodes[*node1].region();
+            let r1 = &self.nodes[*node1].get_region();
             let a1 = r1.get_area();
 
             for (l2_index, node2) in leaves.iter().enumerate().skip(l1_index + 1) {
-                let r2 = &self.nodes[*node2].region();
+                let r2 = &self.nodes[*node2].get_region();
                 let a2 = r2.get_area();
 
                 // combine these two regions together
@@ -222,8 +236,8 @@ impl<ND> RTree<ND> {
         group1.push(ix1);
 
         // Keep track of the minimum bounding regions for the first and second group
-        let mut group1_mbr = self.nodes[children[ix1]].region().clone();
-        let mut group2_mbr = self.nodes[children[ix2]].region().clone();
+        let mut group1_mbr = self.nodes[children[ix1]].get_region().clone();
+        let mut group2_mbr = self.nodes[children[ix2]].get_region().clone();
 
         // Partition the nodes into two groups.  The basic strategy is that at each stepp
         // we find the unpicked node
@@ -238,10 +252,10 @@ impl<ND> RTree<ND> {
 
             for &index in unpicked_children.iter() {
                 let g1r = group1_mbr
-                    .combine_region(self.nodes[children[index]].region())
+                    .combine_region(self.nodes[children[index]].get_region())
                     .expect("failed to combine leaves");
                 let g2r = group2_mbr
-                    .combine_region(self.nodes[children[index]].region())
+                    .combine_region(self.nodes[children[index]].get_region())
                     .expect("failed to combine leaves");
 
                 let d1 = g1r.get_area() - group1_mbr.get_area();
@@ -270,9 +284,9 @@ impl<ND> RTree<ND> {
             if side == 1 {
                 // add to group 1
                 group1.push(best_index);
-                group1_mbr.combine_region_in_place(self.nodes[children[best_index]].region());
+                group1_mbr.combine_region_in_place(self.nodes[children[best_index]].get_region());
             } else {
-                group2_mbr.combine_region_in_place(self.nodes[children[best_index]].region());
+                group2_mbr.combine_region_in_place(self.nodes[children[best_index]].get_region());
             }
         }
 
@@ -280,13 +294,15 @@ impl<ND> RTree<ND> {
             if group1.len() < self.min_children {
                 // rest of the unpicked children go in group 1
                 for child_index in unpicked_children {
-                    group1_mbr.combine_region_in_place(self.nodes[children[child_index]].region());
+                    group1_mbr
+                        .combine_region_in_place(self.nodes[children[child_index]].get_region());
                     group1.push(child_index);
                 }
             } else {
                 // rest of the unpicked children go in group 2
                 for child_index in unpicked_children {
-                    group2_mbr.combine_region_in_place(self.nodes[children[child_index]].region());
+                    group2_mbr
+                        .combine_region_in_place(self.nodes[children[child_index]].get_region());
                 }
             }
         }
@@ -367,11 +383,11 @@ impl<ND> RTree<ND> {
 
         // If we're splitting the root node, collect all children of the root node into two groups
         // which will be our new root children.
-        //      ( hidden )          (hidden)
-        //          |                  |
-        //         root     =>        root
-        //       /  |  \            /      \
-        //      /   |   \         left    right
+        //
+        //       root     =>    root
+        //      / | \          /    \
+        //     /  |  \       left  right
+        //
         if index == self.root {
             // insert a new left node
             let left_node = Node::new_internal_node(left_mbr, Some(index));
@@ -436,16 +452,15 @@ impl<ND> RTree<ND> {
     ///
     /// - Every child is contained in the minimum bounding region of its parent, and
     /// - The total number of descendants of the root node is equal to the number
-    ///   of nodes in the tree minus two.
+    ///   of nodes in the tree minus one.
     #[inline(always)]
     pub fn validate_consistency(&self) {
         let mut node_counter = 0;
 
         self._validate_consistency(self.root, &mut node_counter);
 
-        // check we have the expected number of nodes.  The +1 is for the hidden super-root
-        // node which we won't talk about.
-        assert_eq!(node_counter + 1, self.nodes.len());
+        // check we have the expected number of nodes.
+        assert_eq!(node_counter, self.nodes.len());
     }
 
     /// Recursively validates that the children of each node are contained in the MBR
@@ -459,7 +474,10 @@ impl<ND> RTree<ND> {
 
         // are all children of this node contained in the MBR of this node?
         for (_, child_node) in self.child_iter(index) {
-            assert_eq!(node.region().contains_region(child_node.region()), Ok(true));
+            assert_eq!(
+                node.get_region().contains_region(child_node.get_region()),
+                Ok(true)
+            );
         }
 
         // validate all children of this node
@@ -565,7 +583,12 @@ impl<ND> RTree<ND> {
     // `pred` should be a function `Fn(shape: &S, region: &Region) -> bool` indicating whether
     // `shape` is contained in `region`.
     #[inline(always)]
-    fn _lookup<S, F: Fn(&S, &Region) -> bool>(&self, shape: &S, pred: F, index: Index) -> Vec<Index> {
+    fn _lookup<S, F: Fn(&S, &Region) -> bool>(
+        &self,
+        shape: &S,
+        pred: F,
+        index: Index,
+    ) -> Vec<Index> {
         let mut hits = Vec::new();
         let mut work_queue = vec![index];
 
@@ -581,7 +604,7 @@ impl<ND> RTree<ND> {
             // Otherwise iterator over the children of this node, extending `work_queue`
             // by any children whose bounding box contains region`.
             for (child_index, child_node) in self.child_iter(index) {
-                if pred(shape, child_node.region()) {
+                if pred(shape, child_node.get_region()) {
                     work_queue.push(child_index);
                 }
             }
@@ -624,9 +647,11 @@ impl<ND> RTree<ND> {
 
     #[inline(always)]
     fn _point_lookup(&self, point: &Point) -> Vec<Index> {
-        self._lookup(point, |point, child_region| {
-            child_region.contains_point(point).unwrap()
-        }, self.root)
+        self._lookup(
+            point,
+            |point, child_region| child_region.contains_point(point).unwrap(),
+            self.root,
+        )
     }
 
     /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
@@ -659,9 +684,11 @@ impl<ND> RTree<ND> {
 
     #[inline(always)]
     fn _region_lookup(&self, region: &Region) -> Vec<Index> {
-        self._lookup(region, |region, child_region| {
-            child_region.contains_region(region).unwrap()
-        }, self.root)
+        self._lookup(
+            region,
+            |region, child_region| child_region.contains_region(region).unwrap(),
+            self.root,
+        )
     }
 
     /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box

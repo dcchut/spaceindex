@@ -82,7 +82,7 @@ fn render_node<ND>(
     // the MBR for this ode.
     if threshold.is_none() || threshold == Some(level) {
         *dirty = true;
-        draw_mbr(canvas, tree.get_node(index).region(), level);
+        draw_mbr(canvas, tree.get_node(index).get_region(), level);
     }
 }
 

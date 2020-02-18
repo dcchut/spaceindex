@@ -4,6 +4,7 @@ spaceindex is a tool for building r-trees.
 
 ![Tree](https://user-images.githubusercontent.com/266585/74727907-fa3b0c80-5295-11ea-9e96-7bd1545bbfcb.png)
 
+![Another Tree](https://user-images.githubusercontent.com/266585/74735021-f2826480-52a3-11ea-8c6c-5de316ff2297.png)
 
 [![Build Status](https://travis-ci.org/dcchut/spaceindex.svg?branch=master)](https://travis-ci.org/dcchut/spaceindex)
 [![codecov](https://codecov.io/gh/dcchut/spaceindex/branch/master/graph/badge.svg)](https://codecov.io/gh/dcchut/spaceindex)
@@ -19,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-spaceindex = "0.2"
+spaceindex = "0.2.1"
 ```
 
 ## Basic Usage

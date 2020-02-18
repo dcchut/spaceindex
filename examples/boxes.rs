@@ -4,8 +4,8 @@ use rand::Rng;
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
 use spaceindex::rtree::RTree;
 
-const RENDER_WIDTH: u32 = 800;
-const RENDER_HEIGHT: u32 = 800;
+const RENDER_WIDTH: u32 = 1000;
+const RENDER_HEIGHT: u32 = 1000;
 
 fn main() -> Result<()> {
     let mut tree = RTree::new(2);

@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 pub use line_segment::LineSegment;
-pub use point::{Point, IntoPoint};
-pub use region::{Region, IntoRegion};
+pub use point::{IntoPoint, Point};
+pub use region::{IntoRegion, Region};
 pub use shape::Shape;
 
 mod line_segment;
