@@ -10,9 +10,9 @@ pub mod rendering;
 pub use node::Node;
 
 #[derive(Debug)]
-pub struct RTree {
+pub struct RTree<ND> {
     /// Nodes are stored in a generational arena.
-    nodes: Arena<Node>,
+    nodes: Arena<Node<ND>>,
 
     /// The index of the root node of this tree.
     root: Index,
@@ -24,7 +24,7 @@ pub struct RTree {
     max_children: usize,
 }
 
-impl RTree {
+impl<ND> RTree<ND> {
     /// Creates a new [`RTree`] with the given number of dimensions.
     ///
     /// # Example
@@ -68,17 +68,13 @@ impl RTree {
     ///
     /// # tree.validate_consistency();
     /// ```
-    pub fn insert<IR: IntoRegion>(
-        &mut self,
-        region: IR,
-        object: usize,
-    ) -> Result<(), ShapelikeError> {
+    pub fn insert<IR: IntoRegion>(&mut self, region: IR, data: ND) -> Result<(), ShapelikeError> {
         // The internal `root` node always contains everything.
-        self.insert_at_node(region.into_region(), object, self.root)
+        self.insert_at_node(region.into_region(), data, self.root)
     }
 
     /// Inserts a node into our tree at the given position.
-    fn _insert(&mut self, region: Region, index: Index) {
+    fn _insert(&mut self, region: Region, data: ND, index: Index) {
         // Parent node should always contain the input region
         assert_eq!(
             self.nodes[index].region().contains_region(&region),
@@ -86,7 +82,7 @@ impl RTree {
         );
 
         // add a new leaf as a child of this node
-        let leaf_node = Node::new_leaf(region, Some(index));
+        let leaf_node = Node::new_leaf(region, data, Some(index));
         let leaf_index = self.nodes.insert(leaf_node);
 
         // This call is safe as `leaf_index` has their parent attribute set to `Some(index)`, i.e.
@@ -105,16 +101,16 @@ impl RTree {
     fn insert_at_node(
         &mut self,
         region: Region,
-        object: usize,
+        data: ND,
         index: Index,
     ) -> Result<(), ShapelikeError> {
         // current node under consideration
         let node = &self.nodes[index];
 
         // If we've reached a node with leaf children, insert here.
-        if node.has_leaf_child(self) || !node.has_children() {
+        if self.has_child_leaf(index) || !node.has_children() {
             // If we've reached a leaf node, insert this as a leaf of the parent?
-            self._insert(region, index);
+            self._insert(region, data, index);
             return Ok(());
         }
 
@@ -130,7 +126,7 @@ impl RTree {
 
         // If we found a child node containing our region, recurse into that node
         if let Some(child_index) = child_containing_region {
-            return self.insert_at_node(region, object, child_index);
+            return self.insert_at_node(region, data, child_index);
         }
 
         // Otherwise there is no child MBR containing our input `region`.  Thus find
@@ -164,7 +160,7 @@ impl RTree {
             }
 
             // Since the enlarged bounding box now contains our object, recurse into that subtree
-            return self.insert_at_node(region, object, child_index);
+            return self.insert_at_node(region, data, child_index);
         }
 
         panic!("something weird happened");
@@ -326,7 +322,7 @@ impl RTree {
         children: impl IntoIterator<Item = Index>,
     ) {
         // get a mutable reference to the current node
-        let node = unsafe { (&mut self.nodes[index] as *mut Node).as_mut().unwrap() };
+        let node = unsafe { (&mut self.nodes[index] as *mut Node<ND>).as_mut().unwrap() };
 
         // Make sure we don't have any children
         assert!(!node.has_children());
@@ -462,7 +458,7 @@ impl RTree {
     }
 
     /// Returns an iterator over pairs `(Index, &Node)` corresponding to the nodes in this tree.
-    pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node)> {
+    pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node<ND>)> {
         self.nodes.iter()
     }
 
@@ -471,7 +467,7 @@ impl RTree {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
-    pub fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node)> + '_ {
+    pub fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND>)> + '_ {
         self.nodes[index]
             .child_index_iter()
             .map(move |index| (index, self.get_node(index)))
@@ -481,7 +477,7 @@ impl RTree {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
-    pub fn get_node(&self, index: Index) -> &Node {
+    pub fn get_node(&self, index: Index) -> &Node<ND> {
         &self.nodes[index]
     }
 
@@ -489,12 +485,12 @@ impl RTree {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
-    pub fn get_node_mut(&mut self, index: Index) -> &mut Node {
+    pub fn get_node_mut(&mut self, index: Index) -> &mut Node<ND> {
         &mut self.nodes[index]
     }
 
     /// Returns a reference to the root [`Node`] in this tree.
-    pub fn root_node(&self) -> &Node {
+    pub fn root_node(&self) -> &Node<ND> {
         &self.nodes[self.root]
     }
 
@@ -522,5 +518,15 @@ impl RTree {
             buffer.push((index, child_index));
             self._collect_edges(buffer, child_index);
         }
+    }
+
+    /// Returns `true` if any direct child of this node is a leaf node, `false` otherwise.
+    pub fn has_child_leaf(&self, index: Index) -> bool {
+        for (_, child_node) in self.child_iter(index) {
+            if child_node.is_leaf() {
+                return true;
+            }
+        }
+        false
     }
 }

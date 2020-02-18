@@ -1,9 +1,8 @@
 use crate::geometry::Region;
-use crate::rtree::RTree;
 use generational_arena::Index;
 
 #[derive(Debug)]
-pub struct Node {
+pub struct Node<S> {
     /// The minimum bounding region enclosing all data contained in this node.
     minimum_bounding_region: Region,
 
@@ -13,22 +12,27 @@ pub struct Node {
     /// A boolean indicating whether this node is a leaf node.
     is_leaf: bool,
 
+    /// Some data owned by this node
+    data: Option<S>,
+
     /// The index of the parent node in our tree.
     parent: Option<Index>,
 }
 
-impl Node {
+impl<S> Node<S> {
     /// Create a new node.
     fn new(
         minimum_bounding_region: Region,
         children: Vec<Index>,
         is_leaf: bool,
+        data: Option<S>,
         parent: Option<Index>,
     ) -> Self {
         Self {
             minimum_bounding_region,
             children,
             is_leaf,
+            data,
             parent,
         }
     }
@@ -38,31 +42,27 @@ impl Node {
         minimum_bounding_region: Region,
         parent: Option<Index>,
     ) -> Self {
-        Self::new(minimum_bounding_region, Vec::new(), false, parent)
+        Self::new(minimum_bounding_region, Vec::new(), false, None, parent)
     }
 
     /// Creates a new leaf [`Node`] with the given minimum bounding region and parent.
-    pub(crate) fn new_leaf(minimum_bounding_region: Region, parent: Option<Index>) -> Self {
-        Self::new(minimum_bounding_region, Vec::new(), true, parent)
+    pub(crate) fn new_leaf(
+        minimum_bounding_region: Region,
+        data: S,
+        parent: Option<Index>,
+    ) -> Self {
+        Self::new(
+            minimum_bounding_region,
+            Vec::new(),
+            true,
+            Some(data),
+            parent,
+        )
     }
 
     /// Returns `true` if this node is a leaf node, `false` otherwise.
     pub fn is_leaf(&self) -> bool {
         self.is_leaf
-    }
-
-    /// Returns `true` if any direct child of this node is a leaf node, `false` otherwise.
-    ///
-    /// # Panics
-    /// This function will panic if `self` is not a node in `tree`.
-    pub fn has_leaf_child(&self, tree: &RTree) -> bool {
-        for child_index in self.children.iter() {
-            if tree.nodes[*child_index].is_leaf() {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Returns `true` if this node has any children, `false` otherwise.

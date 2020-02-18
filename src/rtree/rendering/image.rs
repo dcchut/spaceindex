@@ -34,14 +34,14 @@ impl TreeRenderOptions {
         self
     }
 
-    pub fn draw_tree<P: AsRef<Path>>(&self, filename: P, tree: &RTree, index: Index) {
+    pub fn draw_tree<P: AsRef<Path>, ND>(&self, filename: P, tree: &RTree<ND>, index: Index) {
         draw_tree(filename, tree, index, self);
     }
 }
 
-pub fn draw_tree<P: AsRef<Path>>(
+pub fn draw_tree<P: AsRef<Path>, ND>(
     filename: P,
-    tree: &RTree,
+    tree: &RTree<ND>,
     index: Index,
     options: &TreeRenderOptions,
 ) {
@@ -58,10 +58,10 @@ pub fn draw_tree<P: AsRef<Path>>(
 
 const BUFFER_WIDTH: f64 = 1.0;
 
-fn render_node(
+fn render_node<ND>(
     canvas: &mut RgbImage,
     dirty: &mut bool,
-    tree: &RTree,
+    tree: &RTree<ND>,
     index: Index,
     level: usize,
     threshold: Option<usize>,
@@ -115,38 +115,36 @@ fn draw_mbr<C: Canvas<Pixel = Rgb<u8>>>(canvas: &mut C, mbr: &Region, level: usi
     let (x0, x1) = mbr.coordinates[0];
     let (y0, y1) = mbr.coordinates[1];
 
-    for thickness in 0..1 {
-        draw_line(
-            canvas,
-            level,
-            x0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            y0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            x0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            y1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-        );
-        draw_line(
-            canvas,
-            level,
-            x0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            y1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            x1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            y1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-        );
-        draw_line(
-            canvas,
-            level,
-            x1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            y1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            x1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            y0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-        );
-        draw_line(
-            canvas,
-            level,
-            x1 - (BUFFER_WIDTH * level as f64) - thickness as f64,
-            y0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            x0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-            y0 + (BUFFER_WIDTH * level as f64) + thickness as f64,
-        );
-    }
+    draw_line(
+        canvas,
+        level,
+        x0 + (BUFFER_WIDTH * level as f64),
+        y0 + (BUFFER_WIDTH * level as f64),
+        x0 + (BUFFER_WIDTH * level as f64),
+        y1 - (BUFFER_WIDTH * level as f64),
+    );
+    draw_line(
+        canvas,
+        level,
+        x0 + (BUFFER_WIDTH * level as f64),
+        y1 - (BUFFER_WIDTH * level as f64),
+        x1 - (BUFFER_WIDTH * level as f64),
+        y1 - (BUFFER_WIDTH * level as f64),
+    );
+    draw_line(
+        canvas,
+        level,
+        x1 - (BUFFER_WIDTH * level as f64),
+        y1 - (BUFFER_WIDTH * level as f64),
+        x1 - (BUFFER_WIDTH * level as f64),
+        y0 + (BUFFER_WIDTH * level as f64),
+    );
+    draw_line(
+        canvas,
+        level,
+        x1 - (BUFFER_WIDTH * level as f64),
+        y0 + (BUFFER_WIDTH * level as f64),
+        x0 + (BUFFER_WIDTH * level as f64),
+        y0 + (BUFFER_WIDTH * level as f64),
+    );
 }

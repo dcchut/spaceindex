@@ -9,7 +9,7 @@ use crate::rtree::RTree;
 type Nd = Index;
 type Ed = (Index, Index);
 
-impl<'a> dot::Labeller<'a> for RTree {
+impl<'a, ND> dot::Labeller<'a> for RTree<ND> {
     type Node = Nd;
     type Edge = Ed;
 
@@ -24,7 +24,7 @@ impl<'a> dot::Labeller<'a> for RTree {
     }
 }
 
-impl<'a> dot::GraphWalk<'a> for RTree {
+impl<'a, ND> dot::GraphWalk<'a> for RTree<ND> {
     type Node = Nd;
     type Edge = Ed;
 
@@ -45,7 +45,7 @@ impl<'a> dot::GraphWalk<'a> for RTree {
     }
 }
 
-pub fn render_gviz<P: AsRef<Path>>(tree: &RTree, path: P) {
+pub fn render_gviz<P: AsRef<Path>, ND>(tree: &RTree<ND>, path: P) {
     let path = path.as_ref();
 
     let mut f = std::fs::File::create(path).unwrap();
