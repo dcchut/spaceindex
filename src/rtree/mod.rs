@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use generational_arena::{Arena, Index};
 
-use crate::geometry::{IntoRegion, Region, Shapelike, ShapelikeError};
+use crate::geometry::{IntoRegion, Region, Shapelike, ShapelikeError, IntoPoint, Point, Shape, LineSegment};
 
 mod node;
 pub mod rendering;
@@ -36,6 +36,7 @@ impl<ND> RTree<ND> {
     ///
     /// # tree.validate_consistency();
     /// ```
+    #[inline(always)]
     pub fn new(dimension: usize) -> Self {
         let node = Node::new_internal_node(Region::infinite(dimension), None);
         let mut nodes = Arena::new();
@@ -68,12 +69,14 @@ impl<ND> RTree<ND> {
     ///
     /// # tree.validate_consistency();
     /// ```
+    #[inline(always)]
     pub fn insert<IR: IntoRegion>(&mut self, region: IR, data: ND) -> Result<(), ShapelikeError> {
         // The internal `root` node always contains everything.
         self.insert_at_node(region.into_region(), data, self.root)
     }
 
     /// Inserts a node into our tree at the given position.
+    #[inline(always)]
     fn _insert(&mut self, region: Region, data: ND, index: Index) {
         // Parent node should always contain the input region
         assert_eq!(
@@ -98,6 +101,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Recursively searches for the internal node whose minimum bounding region contains `region`.
+    #[inline(always)]
     fn insert_at_node(
         &mut self,
         region: Region,
@@ -170,6 +174,7 @@ impl<ND> RTree<ND> {
     /// the worst.  To be concrete, we find the pair whose combined bounding box
     /// has the maximum difference to the sum of the areas of the bounding boxes
     /// for the original two nodes.
+    #[inline(always)]
     fn find_worst_pair(&self, leaves: &[Index]) -> (usize, usize) {
         // This would be silly.
         debug_assert!(leaves.len() >= 2);
@@ -201,6 +206,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Splits a vector of nodes into two groups using the QuadraticSplit algorithm.
+    #[inline(always)]
     fn quadratic_partition(
         &self,
         children: Vec<Index>,
@@ -292,6 +298,7 @@ impl<ND> RTree<ND> {
 
     /// Splits a vector `v` into two vectors, with the first vector containing all elements
     /// of `v` whose indexes are in `left_indexes`, and the second vector containing the rest.
+    #[inline(always)]
     fn assemble<S>(v: Vec<S>, left_indexes: HashSet<usize>) -> (Vec<S>, Vec<S>) {
         let mut left = Vec::with_capacity(left_indexes.len());
         let mut right = Vec::with_capacity(v.len() - left_indexes.len());
@@ -316,6 +323,7 @@ impl<ND> RTree<ND> {
     /// - `index` does not refer to a node in `self`, or
     /// - Any index in `children` does not refer to a node in `self`.
     /// - `index` appears in `children`
+    #[inline(always)]
     pub(crate) fn set_children_safe(
         &mut self,
         index: Index,
@@ -345,6 +353,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Splits the overfull node corresponding to `index`.
+    #[inline(always)]
     fn split_node(&mut self, index: Index) {
         // Get all of the children of the current node
         let children = self.get_node_mut(index).clear_children();
@@ -428,6 +437,7 @@ impl<ND> RTree<ND> {
     /// - Every child is contained in the minimum bounding region of its parent, and
     /// - The total number of descendants of the root node is equal to the number
     ///   of nodes in the tree minus two.
+    #[inline(always)]
     pub fn validate_consistency(&self) {
         let mut node_counter = 0;
 
@@ -440,6 +450,7 @@ impl<ND> RTree<ND> {
 
     /// Recursively validates that the children of each node are contained in the MBR
     /// of their parent.
+    #[inline(always)]
     fn _validate_consistency(&self, index: Index, node_counter: &mut usize) {
         let node = &self.nodes[index];
 
@@ -458,6 +469,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Returns an iterator over pairs `(Index, &Node)` corresponding to the nodes in this tree.
+    #[inline(always)]
     pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node<ND>)> {
         self.nodes.iter()
     }
@@ -467,6 +479,7 @@ impl<ND> RTree<ND> {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
+    #[inline(always)]
     pub fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND>)> + '_ {
         self.nodes[index]
             .child_index_iter()
@@ -477,6 +490,7 @@ impl<ND> RTree<ND> {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
+    #[inline(always)]
     pub fn get_node(&self, index: Index) -> &Node<ND> {
         &self.nodes[index]
     }
@@ -485,22 +499,26 @@ impl<ND> RTree<ND> {
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
+    #[inline(always)]
     pub fn get_node_mut(&mut self, index: Index) -> &mut Node<ND> {
         &mut self.nodes[index]
     }
 
     /// Returns a reference to the root [`Node`] in this tree.
+    #[inline(always)]
     pub fn root_node(&self) -> &Node<ND> {
         &self.nodes[self.root]
     }
 
     /// Returns the index of the root node in this tree.
+    #[inline(always)]
     pub fn root_index(&self) -> Index {
         self.root
     }
 
     /// Returns a vector of pairs `(Index, Index)` corresponding to all edges in this tree.
     /// The edges are always of the form `(Parent, Child)`.
+    #[inline(always)]
     pub fn collect_edges(&self) -> Vec<(Index, Index)> {
         // collect all edges in the tree
         let mut edges = Vec::new();
@@ -510,6 +528,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Recursively extends `buffer` with all children of the given node.
+    #[inline(always)]
     fn _collect_edges(&self, buffer: &mut Vec<(Index, Index)>, index: Index) {
         // extend buffer with all edges from the current node
         let node = self.get_node(index);
@@ -521,6 +540,7 @@ impl<ND> RTree<ND> {
     }
 
     /// Returns `true` if any direct child of this node is a leaf node, `false` otherwise.
+    #[inline(always)]
     pub fn has_child_leaf(&self, index: Index) -> bool {
         for (_, child_node) in self.child_iter(index) {
             if child_node.is_leaf() {
@@ -528,5 +548,127 @@ impl<ND> RTree<ND> {
             }
         }
         false
+    }
+
+    /// Returns a `Vec<Index>` of those elements in the tree whose bounding box contains the
+    /// minimum bounding box of the input `shape`.
+    #[inline(always)]
+    pub fn shape_lookup(&self, shape: &Shape) -> Vec<Index> {
+        match shape {
+            Shape::Point(point) => self._point_lookup(point),
+            Shape::LineSegment(line) => self.line_lookup(line),
+            Shape::Region(region) => self._region_lookup(region),
+        }
+    }
+
+    // Searches the tree for any leaves containing the input shape `shape`.
+    // `pred` should be a function `Fn(shape: &S, region: &Region) -> bool` indicating whether
+    // `shape` is contained in `region`.
+    #[inline(always)]
+    fn _lookup<S, F: Fn(&S, &Region) -> bool>(&self, shape: &S, pred: F, index: Index) -> Vec<Index> {
+        let mut hits = Vec::new();
+        let mut work_queue = vec![index];
+
+        'work_loop: while let Some(index) = work_queue.pop() {
+            let node = self.get_node(index);
+
+            // If we're at a leaf node, then add it to our hits vetor.
+            if node.is_leaf() {
+                hits.push(index);
+                continue 'work_loop;
+            }
+
+            // Otherwise iterator over the children of this node, extending `work_queue`
+            // by any children whose bounding box contains region`.
+            for (child_index, child_node) in self.child_iter(index) {
+                if pred(shape, child_node.region()) {
+                    work_queue.push(child_index);
+                }
+            }
+        }
+
+        hits
+    }
+
+    /// Returns a `Vec<Index>` of those regions in the tree containing the given point `point`.
+    ///
+    /// # Example
+    /// ```rust
+    /// use spaceindex::rtree::RTree;
+    ///
+    /// let mut tree = RTree::new(2);
+    ///
+    /// // insert a couple of regions
+    /// tree.insert(((0.0, 0.0), (2.0, 2.0)), ());
+    /// tree.insert(((1.0, 0.0), (3.0, 3.0)), ());
+    ///
+    /// // Both rectangles contain the point (1.0, 1.0)
+    /// assert_eq!(tree.point_lookup((1.0, 1.0)).len(), 2);
+    ///
+    /// // No rectangle should contain the point (-1.0, 0.0)
+    /// assert!(tree.point_lookup((-1.0, 0.0)).is_empty());
+    ///
+    /// // Only one hit for (0.5, 0.5)
+    /// assert_eq!(tree.point_lookup((0.5, 0.5)).len(), 1);
+    ///
+    /// // Two hits at (2.0, 2.0)
+    /// assert_eq!(tree.point_lookup((2.0, 2.0)).len(), 2);
+    ///
+    /// // Only one hit at (2.5, 2.5)
+    /// assert_eq!(tree.point_lookup((2.5, 2.5)).len(), 1);
+    /// ```
+    #[inline(always)]
+    pub fn point_lookup<IP: IntoPoint>(&self, point: IP) -> Vec<Index> {
+        self._point_lookup(&point.into_pt())
+    }
+
+    #[inline(always)]
+    fn _point_lookup(&self, point: &Point) -> Vec<Index> {
+        self._lookup(point, |point, child_region| {
+            child_region.contains_point(point).unwrap()
+        }, self.root)
+    }
+
+    /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
+    /// contains the given region.
+    ///
+    /// # Example
+    /// ```rust
+    /// use spaceindex::rtree::RTree;
+    ///
+    /// let mut tree = RTree::new(2);
+    ///
+    /// // insert a couple of regions
+    /// tree.insert(((0.0, 0.0), (2.0, 2.0)), ());
+    /// tree.insert(((1.0, 0.0), (3.0, 3.0)), ());
+    ///
+    /// // Both regions contain the box ((1.25, 1.0), (1.75, 1.75))
+    /// assert_eq!(tree.region_lookup(((1.25, 1.0), (1.75, 1.75))).len(), 2);
+    ///
+    /// // While the box ((-0.5, -0.5), (0.5, 0.5)) does intersect our first region,
+    /// // it is not contained in any region, so we should get no results.
+    /// assert!(tree.region_lookup(((-0.5, -0.5), (0.5, 0.5))).is_empty());
+    ///
+    /// /// The box ((0.0, 0.5), (0.75, 1.99)) is only contained in the first region.
+    /// assert_eq!(tree.region_lookup(((0.0, 0.5), (0.75, 1.99))).len(), 1);
+    /// ```
+    #[inline(always)]
+    pub fn region_lookup<IR: IntoRegion>(&self, region: IR) -> Vec<Index> {
+        self._region_lookup(&region.into_region())
+    }
+
+    #[inline(always)]
+    fn _region_lookup(&self, region: &Region) -> Vec<Index> {
+        self._lookup(region, |region, child_region| {
+            child_region.contains_region(region).unwrap()
+        }, self.root)
+    }
+
+    /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
+    /// contains the given line.
+    #[inline(always)]
+    pub fn line_lookup(&self, line: &LineSegment) -> Vec<Index> {
+        let minimum_bounding_region = line.get_min_bounding_region();
+        self.region_lookup(minimum_bounding_region)
     }
 }

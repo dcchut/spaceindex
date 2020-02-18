@@ -66,6 +66,12 @@ pub trait IntoPoint {
     fn into_pt(self) -> Point;
 }
 
+impl IntoPoint for Point {
+    fn into_pt(self) -> Point {
+        self
+    }
+}
+
 impl IntoPoint for f32 {
     fn into_pt(self) -> Point {
         Point::new(vec![self as f64])
