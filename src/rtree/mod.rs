@@ -339,6 +339,7 @@ impl<ND> RTree<ND> {
     /// - `index` does not refer to a node in `self`, or
     /// - Any index in `children` does not refer to a node in `self`.
     /// - `index` appears in `children`
+    /// - Every child of `index` has its parent set to `Some(index)`.
     #[inline(always)]
     pub(crate) fn set_children_safe(
         &mut self,
@@ -474,7 +475,10 @@ impl<ND> RTree<ND> {
             );
 
             // does every child have its parent attribute set correctly?
-            assert_eq!(node.get_parent(), Some(index));
+            assert_eq!(
+                child_node.get_parent(),
+                Some(index)
+            );
         }
 
         // validate all children of this node
