@@ -9,9 +9,6 @@ pub struct Node<S> {
     /// A vector containing all of the children of this node.
     children: Vec<Index>,
 
-    /// A boolean indicating whether this node is a leaf node.
-    is_leaf: bool,
-
     /// Some data owned by this node
     data: Option<S>,
 
@@ -25,48 +22,21 @@ impl<S> Node<S> {
     fn new(
         minimum_bounding_region: Region,
         children: Vec<Index>,
-        is_leaf: bool,
         data: Option<S>,
         parent: Option<Index>,
     ) -> Self {
         Self {
             minimum_bounding_region,
             children,
-            is_leaf,
             data,
             parent,
         }
     }
 
-    /// Creates a new internal [`Node`] with the given minimum bounding region and parent.
-    #[inline(always)]
-    pub(crate) fn new_internal_node(
-        minimum_bounding_region: Region,
-        parent: Option<Index>,
-    ) -> Self {
-        Self::new(minimum_bounding_region, Vec::new(), false, None, parent)
-    }
-
-    /// Creates a new leaf [`Node`] with the given minimum bounding region and parent.
-    #[inline(always)]
-    pub(crate) fn new_leaf(
-        minimum_bounding_region: Region,
-        data: S,
-        parent: Option<Index>,
-    ) -> Self {
-        Self::new(
-            minimum_bounding_region,
-            Vec::new(),
-            true,
-            Some(data),
-            parent,
-        )
-    }
-
     /// Returns `true` if this node is a leaf node, `false` otherwise.
     #[inline(always)]
     pub fn is_leaf(&self) -> bool {
-        self.is_leaf
+        self.data.is_some()
     }
 
     /// Returns `true` if this node has any children, `false` otherwise.
@@ -87,16 +57,40 @@ impl<S> Node<S> {
         &self.minimum_bounding_region
     }
 
-    /// Returns a mutable reference to the minimum bounding region of this node.
-    #[inline(always)]
-    pub fn get_region_mut(&mut self) -> &mut Region {
-        &mut self.minimum_bounding_region
-    }
-
     /// Returns an iterator over the `Index`es of children of this node.
     #[inline(always)]
     pub fn child_index_iter(&self) -> impl Iterator<Item = Index> + '_ {
         self.children.iter().cloned()
+    }
+
+    /// Creates a new internal [`Node`] with the given minimum bounding region and parent.
+    #[inline(always)]
+    pub(crate) fn new_internal_node(
+        minimum_bounding_region: Region,
+        parent: Option<Index>,
+    ) -> Self {
+        Self::new(minimum_bounding_region, Vec::new(), None, parent)
+    }
+
+    /// Creates a new leaf [`Node`] with the given minimum bounding region and parent.
+    #[inline(always)]
+    pub(crate) fn new_leaf(
+        minimum_bounding_region: Region,
+        data: S,
+        parent: Option<Index>,
+    ) -> Self {
+        Self::new(minimum_bounding_region, Vec::new(), Some(data), parent)
+    }
+
+    /// Combines the current minimum bounding of this region with `region`.  This method is unsafe,
+    /// as using it incorrectly will lead to corrupt data.
+    ///
+    /// To use this function safely, it is required that the minimum bounding region of the parent
+    /// of this node contains `region` (and is thus guaranteed to contain the combination of
+    /// this nodes current [`Region`] and `region`).
+    #[inline(always)]
+    pub(crate) unsafe fn combine_region(&mut self, region: &Region) {
+        self.minimum_bounding_region.combine_region_in_place(region);
     }
 
     /// Sets the children vector of `self` to be equal to `children`.  This method is unsafe,

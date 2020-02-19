@@ -79,10 +79,12 @@ impl<ND> RTree<ND> {
                     .set_minimum_bounding_region_unsafe(region.clone())
             }
         } else {
-            // Otherwise extend the MBR of the root node by the input region
-            self.get_node_mut(self.root)
-                .get_region_mut()
-                .combine_region_in_place(&region);
+            // Otherwise extend the MBR of the root node by the input region.
+            // This call is fine because the root node has no parents, so we don't need to
+            // worry about having inconsistent minimum bounding regions.
+            unsafe {
+                self.get_node_mut(self.root).combine_region(&region);
+            }
         }
 
         // The internal `root` node always contains everything.
@@ -475,10 +477,7 @@ impl<ND> RTree<ND> {
             );
 
             // does every child have its parent attribute set correctly?
-            assert_eq!(
-                child_node.get_parent(),
-                Some(index)
-            );
+            assert_eq!(child_node.get_parent(), Some(index));
         }
 
         // validate all children of this node
