@@ -1,0 +1,21 @@
+[package]
+name = "spaceindex-py"
+version = "0.1.0+dev"
+authors = ["Robert Usher <266585+dcchut@users.noreply.github.com>"]
+edition = "2018"
+description = "spaceindex pythony module"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dcchut/spaceindex"
+
+[lib]
+name = "pyspaceindex"
+crate-type = ["cdylib"]
+
+[dependencies.spaceindex]
+version = "0.2.1"
+path = "../spaceindex"
+
+[dependencies.pyo3]
+version = "0.9.0-alpha.1"
+features = ["extension-module"]

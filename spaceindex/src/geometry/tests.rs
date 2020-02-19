@@ -84,8 +84,11 @@ fn test_combine_regions() {
         .combine_region(&c)
         .expect("Failed to combine regions `b` and `c`");
 
-    // The combined region should go from (0.0)-> (2, 3)
-    assert_eq!(combined_region, ((0.0, 0.0), (2.0, 3.0)).into_region());
+    // The combined region should go from (0.0) -> (2, 3)
+    assert_eq!(
+        combined_region,
+        ((0.0, 0.0), (2.0, 3.0)).into_region().into_owned()
+    );
 }
 
 #[test]

@@ -68,8 +68,12 @@ impl<ND> RTree<ND> {
     /// # tree.validate_consistency();
     /// ```
     #[inline(always)]
-    pub fn insert<IR: IntoRegion>(&mut self, region: IR, data: ND) -> Result<(), ShapelikeError> {
-        let region = region.into_region();
+    pub fn insert<'a, IR: IntoRegion<'a>>(
+        &mut self,
+        region: IR,
+        data: ND,
+    ) -> Result<(), ShapelikeError> {
+        let region = region.into_region().into_owned();
 
         // If we only have the root node, then set the MBR of the root node to be our input region.
         if self.nodes.len() == 1 {
@@ -84,7 +88,7 @@ impl<ND> RTree<ND> {
         }
 
         // The internal `root` node always contains everything.
-        self.insert_at_node(region.into_region(), data, self.root)
+        self.insert_at_node(region, data, self.root)
     }
 
     /// Inserts a node with data `data` into the tree at the given index.  This function is unsafe
@@ -569,9 +573,11 @@ impl<ND> RTree<ND> {
         }
     }
 
-    // Searches the tree for any leaves containing the input shape `shape`.
-    // `pred` should be a function `Fn(shape: &S, region: &Region) -> bool` indicating whether
-    // `shape` is contained in `region`.
+    /// Searches the tree for any leaves containing the input shape `shape`.
+    /// `pred` should be a function `Fn(shape: &S, region: &Region) -> bool` indicating whether
+    /// whether we should recurse into `region`.  Some examples of `pred` could be:
+    /// - Check whether `shape` is contained in region,
+    /// - Check whether `shape` and `region` overlap
     #[inline(always)]
     fn _lookup<S, F: Fn(&S, &Region) -> bool>(
         &self,
@@ -585,14 +591,14 @@ impl<ND> RTree<ND> {
         'work_loop: while let Some(index) = work_queue.pop() {
             let node = self.get_node(index);
 
-            // If we're at a leaf node, then add it to our hits vetor.
+            // If we're at a leaf node, then add it to our hits vector.
             if node.is_leaf() {
                 hits.push(index);
                 continue 'work_loop;
             }
 
-            // Otherwise iterator over the children of this node, extending `work_queue`
-            // by any children whose bounding box contains region`.
+            // Otherwise iterate over the children of this node, extending `work_queue`
+            // by any children where `pref` whose bounding box contains region`.
             for (child_index, child_node) in self.child_iter(index) {
                 if pred(shape, child_node.get_region()) {
                     work_queue.push(child_index);
@@ -645,6 +651,46 @@ impl<ND> RTree<ND> {
     }
 
     /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
+    /// intersects the given region.
+    ///
+    /// # Example
+    /// ```rust
+    /// use spaceindex::rtree::RTree;
+    ///
+    /// let mut tree = RTree::new(2);
+    ///
+    /// // insert a couple of regions
+    /// tree.insert(((0.0, 0.0), (5.0, 5.0)), ());
+    /// tree.insert(((-1.0, 1.0), (1.0, 3.0)), ());
+    ///
+    /// // Nothing should intersect with the box ((-3.0, 0.0), (-2.0, 2.0))
+    /// assert!(tree.region_intersection_lookup(((-3.0, 0.0), (-2.0, 2.0))).is_empty());
+    ///
+    /// // The region ((-3.0, 0.0), (-0.5, 4.0)) should intersect the second region.
+    /// assert_eq!(tree.region_intersection_lookup(((-3.0, 0.0), (-0.5, 4.0))).len(), 1);
+    ///
+    /// // The skinny box ((-2.0, 1.5), (8.0, 1.5)) should intersect both regions.
+    /// assert_eq!(tree.region_intersection_lookup(((-2.0, 1.5), (8.0, 1.5))).len(), 2);
+    ///
+    /// // The region ((3.0, 2.0), (4.0, 4.0)) should only intersect the first region.
+    /// assert_eq!(tree.region_intersection_lookup(((3.0, 2.0), (4.0, 4.0))).len(), 1);
+    /// # tree.validate_consistency();
+    /// ```
+    #[inline(always)]
+    pub fn region_intersection_lookup<'a, IC: IntoRegion<'a>>(&self, region: IC) -> Vec<Index> {
+        self._region_intersection_lookup(&region.into_region())
+    }
+
+    #[inline(always)]
+    fn _region_intersection_lookup(&self, region: &Region) -> Vec<Index> {
+        self._lookup(
+            region,
+            |region, child_region| child_region.intersects_region(region).unwrap(),
+            self.root,
+        )
+    }
+
+    /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
     /// contains the given region.
     ///
     /// # Example
@@ -666,9 +712,10 @@ impl<ND> RTree<ND> {
     ///
     /// /// The box ((0.0, 0.5), (0.75, 1.99)) is only contained in the first region.
     /// assert_eq!(tree.region_lookup(((0.0, 0.5), (0.75, 1.99))).len(), 1);
+    /// # tree.validate_consistency();
     /// ```
     #[inline(always)]
-    pub fn region_lookup<IR: IntoRegion>(&self, region: IR) -> Vec<Index> {
+    pub fn region_lookup<'a, IC: IntoRegion<'a>>(&self, region: IC) -> Vec<Index> {
         self._region_lookup(&region.into_region())
     }
 

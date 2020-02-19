@@ -3,6 +3,7 @@ use crate::geometry::{
     check_dimensions_match, min_distance_point_region, min_distance_region, LineSegment, Point,
     Shape, Shapelike, ShapelikeError,
 };
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Region {
@@ -155,24 +156,36 @@ impl Shapelike for Region {
     }
 }
 
-pub trait IntoRegion {
-    fn into_region(self) -> Region;
+/// We can't implement Into<Cow<'a, Region>> for types such as (f64, f64) or ((f64, f64), (f64, f64)),
+/// so we have the [`IntoRegion<'a>]` trait which is essentially identical.  This makes many of our
+/// internal API's much nicer to work with.
+pub trait IntoRegion<'a> {
+    fn into_region(self) -> Cow<'a, Region>;
 }
 
-impl IntoRegion for Region {
-    fn into_region(self) -> Region {
+impl<'a> IntoRegion<'a> for Region {
+    fn into_region(self) -> Cow<'a, Region> {
+        Cow::Owned(self)
+    }
+}
+
+impl<'a> IntoRegion<'a> for Cow<'a, Region> {
+    fn into_region(self) -> Cow<'a, Region> {
         self
     }
 }
 
-impl IntoRegion for (f64, f64) {
-    fn into_region(self) -> Region {
-        Region::new(vec![(self.0, self.1)])
+impl<'a> IntoRegion<'a> for (f64, f64) {
+    fn into_region(self) -> Cow<'a, Region> {
+        Cow::Owned(Region::new(vec![(self.0, self.1)]))
     }
 }
 
-impl IntoRegion for ((f64, f64), (f64, f64)) {
-    fn into_region(self) -> Region {
-        Region::from_points(&(self.0).into_pt(), &(self.1).into_pt())
+impl<'a> IntoRegion<'a> for ((f64, f64), (f64, f64)) {
+    fn into_region(self) -> Cow<'a, Region> {
+        Cow::Owned(Region::from_points(
+            &(self.0).into_pt(),
+            &(self.1).into_pt(),
+        ))
     }
 }
