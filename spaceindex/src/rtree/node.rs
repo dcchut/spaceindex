@@ -1,5 +1,5 @@
 use crate::geometry::Region;
-use generational_arena::Index;
+use crate::rtree::Index;
 
 #[derive(Debug)]
 pub struct Node<S> {
@@ -152,5 +152,11 @@ impl<S> Node<S> {
         std::mem::swap(&mut buffer, &mut self.children);
 
         buffer
+    }
+
+    /// Returns a reference to the data owned by this node.
+    #[inline(always)]
+    pub fn get_data(&self) -> Option<&S> {
+        self.data.as_ref()
     }
 }

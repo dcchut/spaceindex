@@ -1,10 +1,9 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use generational_arena::Index;
 use rustc_ap_graphviz as dot;
 
-use crate::rtree::RTree;
+use crate::rtree::{Index, RTree};
 
 type Nd = Index;
 type Ed = (Index, Index);

@@ -4,8 +4,7 @@ use image::{Rgb, RgbImage};
 use imageproc::drawing::{draw_line_segment_mut, Canvas};
 
 use crate::geometry::Region;
-use crate::rtree::RTree;
-use generational_arena::Index;
+use crate::rtree::{Index, RTree};
 
 pub struct TreeRenderOptions {
     width: u32,

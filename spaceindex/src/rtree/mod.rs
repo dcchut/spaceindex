@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use generational_arena::{Arena, Index};
+use generational_arena::Arena;
+pub use generational_arena::Index;
+
+pub use node::Node;
 
 use crate::geometry::{
     IntoPoint, IntoRegion, LineSegment, Point, Region, Shape, Shapelike, ShapelikeError,
@@ -8,8 +11,6 @@ use crate::geometry::{
 
 mod node;
 pub mod rendering;
-
-pub use node::Node;
 
 #[derive(Debug)]
 pub struct RTree<ND> {
