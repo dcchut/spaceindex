@@ -134,7 +134,11 @@ impl<S> Node<S> {
     /// Overwrites the current minimum bounding region of this node.  This method is unsafe,
     /// as using it incorrectly can lead to corrupt data.
     ///
-    /// To use this function safely,
+    /// To use this function safely, you must ensure that:
+    /// - The minimum bounding region of any children of this node is containing
+    ///   in the input `minimum_bounding_region`, and
+    /// - `minimum_bounding_region` is contained in the minimum bounding region of
+    ///   the parent of this node.
     #[inline(always)]
     pub(crate) fn set_minimum_bounding_region_unsafe(&mut self, minimum_bounding_region: Region) {
         self.minimum_bounding_region = minimum_bounding_region;
