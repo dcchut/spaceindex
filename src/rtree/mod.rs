@@ -345,25 +345,19 @@ impl<ND> RTree<ND> {
         index: Index,
         children: impl IntoIterator<Item = Index>,
     ) {
-        // get a mutable reference to the current node
-        let node = unsafe { (&mut self.nodes[index] as *mut Node<ND>).as_mut().unwrap() };
-
         // Make sure we don't have any children
-        assert!(!node.has_children());
+        assert!(!self.get_node(index).has_children());
 
         // Make sure `index` exists in our tree
         assert!(self.nodes.contains(index));
 
         for child_index in children {
-            assert_ne!(index, child_index);
-
-            // set the parent of the child node to be `Some(index)`.
-            self.nodes[child_index].set_parent(index);
+            self.get_node_mut(child_index).set_parent(index);
 
             // This is fine because `child_index` refers to a node in this tree whose parent
             // attribute is set to `Some(index)`, as required.
             unsafe {
-                node.add_child_unsafe(child_index);
+                self.get_node_mut(index).add_child_unsafe(child_index);
             }
         }
     }
@@ -472,12 +466,15 @@ impl<ND> RTree<ND> {
         // increment the node counter
         *node_counter += 1;
 
-        // are all children of this node contained in the MBR of this node?
         for (_, child_node) in self.child_iter(index) {
+            // are all children of this node contained in the MBR of this node?
             assert_eq!(
                 node.get_region().contains_region(child_node.get_region()),
                 Ok(true)
             );
+
+            // does every child have its parent attribute set correctly?
+            assert_eq!(node.get_parent(), Some(index));
         }
 
         // validate all children of this node

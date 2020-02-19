@@ -114,7 +114,7 @@ impl<S> Node<S> {
         self.children = children;
     }
 
-    /// Adds a new child to  the current node.  This method is unsafe, as using it incorrectly
+    /// Adds a new child to the current node.  This method is unsafe, as using it incorrectly
     /// will lead to corrupt data.
     ///
     /// To use this function safely, it is required that the node with index `child_index`
