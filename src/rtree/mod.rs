@@ -74,24 +74,22 @@ impl<ND> RTree<ND> {
         // If we only have the root node, then set the MBR of the root node to be our input region.
         if self.nodes.len() == 1 {
             // This call is fine because the root node currently has no children.
-            unsafe {
-                self.get_node_mut(self.root)
-                    .set_minimum_bounding_region_unsafe(region.clone())
-            }
+            self.get_node_mut(self.root)
+                .set_minimum_bounding_region_unsafe(region.clone());
         } else {
             // Otherwise extend the MBR of the root node by the input region.
             // This call is fine because the root node has no parents, so we don't need to
             // worry about having inconsistent minimum bounding regions.
-            unsafe {
-                self.get_node_mut(self.root).combine_region(&region);
-            }
+            self.get_node_mut(self.root).combine_region_unsafe(&region);
         }
 
         // The internal `root` node always contains everything.
         self.insert_at_node(region.into_region(), data, self.root)
     }
 
-    /// Inserts a node into our tree at the given position.
+    /// Inserts a node with data `data` into the tree at the given index.  This function is unsafe
+    /// as using it incorrectly can use to inconsistent data.  A key assumption here is that
+    /// `region` must be contained in the minimum bounding region of the node corresponding to `index`.
     #[inline(always)]
     fn _insert(&mut self, region: Region, data: ND, index: Index) {
         // Parent node should always contain the input region
@@ -106,9 +104,7 @@ impl<ND> RTree<ND> {
 
         // This call is safe as `leaf_index` has their parent attribute set to `Some(index)`, i.e.
         // the index of the current node, and the child node is contained in this tree.
-        unsafe {
-            self.get_node_mut(index).add_child_unsafe(leaf_index);
-        }
+        self.get_node_mut(index).add_child_unsafe(leaf_index);
 
         // If this node node has too many children, split it.
         if self.get_node(index).child_count() >= self.max_children {
@@ -129,7 +125,9 @@ impl<ND> RTree<ND> {
 
         // If we've reached a node with leaf children, insert here.
         if self.has_child_leaf(index) || !node.has_children() {
-            // If we've reached a leaf node, insert this as a leaf of the parent?
+            // If we've reached a leaf node, insert this as a leaf of the parent
+            // This call is safe as `region` is guaranteed to be contained in the minimum
+            // bounding region of this node.
             self._insert(region, data, index);
             return Ok(());
         }
@@ -174,10 +172,8 @@ impl<ND> RTree<ND> {
         {
             // Enlarge `child_index`'s bounding box.  This call is safe as `combined_region`
             // is enlarged from the MBR of the child node.
-            unsafe {
-                self.get_node_mut(child_index)
-                    .set_minimum_bounding_region_unsafe(combined_region);
-            }
+            self.get_node_mut(child_index)
+                .set_minimum_bounding_region_unsafe(combined_region);
 
             // Since the enlarged bounding box now contains our object, recurse into that subtree
             return self.insert_at_node(region, data, child_index);
@@ -357,11 +353,9 @@ impl<ND> RTree<ND> {
         for child_index in children {
             self.get_node_mut(child_index).set_parent(index);
 
-            // This is fine because `child_index` refers to a node in this tree whose parent
+            // This call is fine because `child_index` refers to a node in this tree whose parent
             // attribute is set to `Some(index)`, as required.
-            unsafe {
-                self.get_node_mut(index).add_child_unsafe(child_index);
-            }
+            self.get_node_mut(index).add_child_unsafe(child_index);
         }
     }
 
@@ -396,15 +390,13 @@ impl<ND> RTree<ND> {
             let right_index = self.nodes.insert(right_node);
             self.set_children_safe(right_index, right);
 
+            // Add the left and right nodes as children of the current node.
             // This call is safe because:
             // - The current node has no children,
             // - The nodes corresponding to `left_index` and `right_index` both have their `parent`
             //   attribute set to `Some(index)`, i.e. the index of the current node.
-            unsafe {
-                // Add the left and right nodes as children of the current node.
-                self.get_node_mut(index)
-                    .set_children_unsafe(vec![left_index, right_index]);
-            }
+            self.get_node_mut(index)
+                .set_children_unsafe(vec![left_index, right_index]);
         } else {
             // Otherwise we apply the transformation:
             //
@@ -422,10 +414,8 @@ impl<ND> RTree<ND> {
             // This is safe as `left_node` has no children, and all of the children
             // in `left` already have their parent attribute set to `Some(index)`.
             // Finally, all of the children are contained in `left_mbr` by its construction.
-            unsafe {
-                left_node.set_minimum_bounding_region_unsafe(left_mbr);
-                left_node.set_children_unsafe(left);
-            };
+            left_node.set_minimum_bounding_region_unsafe(left_mbr);
+            left_node.set_children_unsafe(left);
 
             // make a new empty right node
             let right_index = self
@@ -435,9 +425,9 @@ impl<ND> RTree<ND> {
             // add the right as children (safely) of the right node
             self.set_children_safe(right_index, right.iter().cloned());
 
-            // This `unsafe` call is fine here because `right_index` refers to a node in this tree
+            // This call is fine here because `right_index` refers to a node in this tree
             // whose parent attribute is set to `Some(parent)`.
-            unsafe { self.get_node_mut(parent).add_child_unsafe(right_index) };
+            self.get_node_mut(parent).add_child_unsafe(right_index);
 
             if self.nodes[parent].child_count() >= self.max_children {
                 self.split_node(parent);

@@ -89,7 +89,7 @@ impl<S> Node<S> {
     /// of this node contains `region` (and is thus guaranteed to contain the combination of
     /// this nodes current [`Region`] and `region`).
     #[inline(always)]
-    pub(crate) unsafe fn combine_region(&mut self, region: &Region) {
+    pub(crate) fn combine_region_unsafe(&mut self, region: &Region) {
         self.minimum_bounding_region.combine_region_in_place(region);
     }
 
@@ -101,7 +101,7 @@ impl<S> Node<S> {
     /// - All of the nodes referred to by `children` must already have their `parent` attribute
     ///   set to the index of the current node.
     #[inline(always)]
-    pub(crate) unsafe fn set_children_unsafe(&mut self, children: Vec<Index>) {
+    pub(crate) fn set_children_unsafe(&mut self, children: Vec<Index>) {
         // Again, we should only ever do this on a node that has no children.
         debug_assert!(self.children.is_empty());
 
@@ -115,7 +115,7 @@ impl<S> Node<S> {
     /// in our tree has their `parent` attribute set to the index of the current node, and
     /// that the child is contained in the minimum bounding region of this node.
     #[inline(always)]
-    pub(crate) unsafe fn add_child_unsafe(&mut self, child_index: Index) {
+    pub(crate) fn add_child_unsafe(&mut self, child_index: Index) {
         self.children.push(child_index);
     }
 
@@ -136,10 +136,7 @@ impl<S> Node<S> {
     ///
     /// To use this function safely,
     #[inline(always)]
-    pub(crate) unsafe fn set_minimum_bounding_region_unsafe(
-        &mut self,
-        minimum_bounding_region: Region,
-    ) {
+    pub(crate) fn set_minimum_bounding_region_unsafe(&mut self, minimum_bounding_region: Region) {
         self.minimum_bounding_region = minimum_bounding_region;
     }
 
