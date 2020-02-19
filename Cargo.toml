@@ -1,18 +1,2 @@
-[package]
-name = "spaceindex"
-version = "0.2.2+dev"
-authors = ["Robert Usher <266585+dcchut@users.noreply.github.com>"]
-edition = "2018"
-description = "spaceindex"
-readme = "README.md"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/dcchut/spaceindex"
-
-[dependencies]
-thiserror = "1.0"
-generational-arena = "0.2"
-rand = "0.7"
-imageproc = "0.19"
-image = "0.22"
-rustc-ap-graphviz = "643.0"
-anyhow = "1.0"
+[workspace]
+members = ["spaceindex"]
