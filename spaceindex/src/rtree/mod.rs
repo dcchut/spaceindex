@@ -11,6 +11,8 @@ use crate::geometry::{
 
 mod node;
 pub mod rendering;
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug)]
 pub struct RTree<ND> {
@@ -39,7 +41,6 @@ impl<ND> RTree<ND> {
     ///
     /// # tree.validate_consistency();
     /// ```
-    #[inline(always)]
     pub fn new(dimension: usize) -> Self {
         let node = Node::new_internal_node(Region::infinite(dimension), None);
         let mut nodes = Arena::new();
@@ -68,7 +69,6 @@ impl<ND> RTree<ND> {
     ///
     /// # tree.validate_consistency();
     /// ```
-    #[inline(always)]
     pub fn insert<'a, IR: IntoRegion<'a>>(
         &mut self,
         region: IR,
@@ -95,7 +95,6 @@ impl<ND> RTree<ND> {
     /// Inserts a node with data `data` into the tree at the given index.  This function is unsafe
     /// as using it incorrectly can use to inconsistent data.  A key assumption here is that
     /// `region` must be contained in the minimum bounding region of the node corresponding to `index`.
-    #[inline(always)]
     fn _insert(&mut self, region: Region, data: ND, index: Index) {
         // Parent node should always contain the input region
         assert_eq!(
@@ -118,7 +117,6 @@ impl<ND> RTree<ND> {
     }
 
     /// Recursively searches for the internal node whose minimum bounding region contains `region`.
-    #[inline(always)]
     fn insert_at_node(
         &mut self,
         region: Region,
@@ -191,7 +189,6 @@ impl<ND> RTree<ND> {
     /// the worst.  To be concrete, we find the pair whose combined bounding box
     /// has the maximum difference to the sum of the areas of the bounding boxes
     /// for the original two nodes.
-    #[inline(always)]
     fn find_worst_pair(&self, leaves: &[Index]) -> (usize, usize) {
         // This would be silly.
         debug_assert!(leaves.len() >= 2);
@@ -223,7 +220,6 @@ impl<ND> RTree<ND> {
     }
 
     /// Splits a vector of nodes into two groups using the QuadraticSplit algorithm.
-    #[inline(always)]
     fn quadratic_partition(
         &self,
         children: Vec<Index>,
@@ -317,7 +313,6 @@ impl<ND> RTree<ND> {
 
     /// Splits a vector `v` into two vectors, with the first vector containing all elements
     /// of `v` whose indexes are in `left_indexes`, and the second vector containing the rest.
-    #[inline(always)]
     fn assemble<S>(v: Vec<S>, left_indexes: HashSet<usize>) -> (Vec<S>, Vec<S>) {
         let mut left = Vec::with_capacity(left_indexes.len());
         let mut right = Vec::with_capacity(v.len() - left_indexes.len());
@@ -343,7 +338,6 @@ impl<ND> RTree<ND> {
     /// - Any index in `children` does not refer to a node in `self`.
     /// - `index` appears in `children`
     /// - Every child of `index` has its parent set to `Some(index)`.
-    #[inline(always)]
     pub(crate) fn set_children_safe(
         &mut self,
         index: Index,
@@ -365,7 +359,6 @@ impl<ND> RTree<ND> {
     }
 
     /// Splits the overfull node corresponding to `index`.
-    #[inline(always)]
     fn split_node(&mut self, index: Index) {
         // Get all of the children of the current node
         let children = self.get_node_mut(index).clear_children();
@@ -445,7 +438,6 @@ impl<ND> RTree<ND> {
     /// - Every child is contained in the minimum bounding region of its parent, and
     /// - The total number of descendants of the root node is equal to the number
     ///   of nodes in the tree minus one.
-    #[inline(always)]
     pub fn validate_consistency(&self) {
         let mut node_counter = 0;
 
@@ -457,7 +449,6 @@ impl<ND> RTree<ND> {
 
     /// Recursively validates that the children of each node are contained in the MBR
     /// of their parent.
-    #[inline(always)]
     fn _validate_consistency(&self, index: Index, node_counter: &mut usize) {
         let node = &self.nodes[index];
 
