@@ -2,5 +2,5 @@
 
 set -ex
 
-cargo build --verbose
-cargo test --verbose
+cargo +nightly build --verbose
+cargo +nightly test --verbose
