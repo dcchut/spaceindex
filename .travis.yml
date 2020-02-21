@@ -4,7 +4,7 @@ os:
 dist: bionic
 language: rust
 
--rust:
+rust:
   - nightly
 
 addons:
