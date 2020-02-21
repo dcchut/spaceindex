@@ -8,19 +8,14 @@ cache:
 matrix:
   include:
     - python: "3.5"
-      env: FEATURES=python3
     - python: "3.6"
-      env: FEATURES=python3
     - python: "3.7"
-      env: FEATURES=python3
     - python: "3.8"
-      env: FEATURES=python3
 
 env:
   global:
     - TRAVIS_RUST_VERSION=nightly
     - RUST_BACKTRACE=1
-    - FEATURES=python3
 
 addons:
   apt:
