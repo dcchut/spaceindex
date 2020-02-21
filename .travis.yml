@@ -1,14 +1,51 @@
-os:
-  - linux
+language: python
+dist: xenial
 
-dist: bionic
-language: rust
+cache:
+  pip: true
+  cargo: true
 
-rust:
-  - nightly
+matrix:
+  include:
+    - python: "3.5"
+      env: FEATURES=python3
+    - python: "3.6"
+      env: FEATURES=python3
+    - python: "3.7"
+      env: FEATURES=python3
+    - python: "3.8"
+      env: FEATURES=python3
+
+env:
+  global:
+    - TRAVIS_RUST_VERSION=nightly
+    - RUST_BACKTRACE=1
+    - FEATURES=python3
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+      - libiberty-dev
+      - gfortran
+      - zlib1g-dev
+      - python3
+      - python3-dev
+      - build-essential
 
 before_install:
-  - sudo apt-get -y install libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev libiberty-dev zlib1g-dev python3 python3-dev build-essential
+  - source ./ci/travis/setup.sh
+
+install:
+  - pip install setuptools-rust pytest pytest-benchmark tox flake8
+
+script:
+  - ./ci/travis/test.sh
 
 after_success: |
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
