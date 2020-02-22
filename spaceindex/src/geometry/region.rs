@@ -1,9 +1,10 @@
+use std::borrow::Cow;
+
 use crate::geometry::point::IntoPoint;
 use crate::geometry::{
     check_dimensions_match, min_distance_point_region, min_distance_region, LineSegment, Point,
     Shape, Shapelike, ShapelikeError,
 };
-use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Region {

@@ -1,6 +1,6 @@
 use anyhow::Result;
-
 use rand::Rng;
+
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
 use spaceindex::rtree::RTree;
 
@@ -23,8 +23,11 @@ fn main() -> Result<()> {
         tree.insert(((x, y), (x + length, y + length)), 0)?;
     }
 
-    TreeRenderOptions::new(RENDER_WIDTH, RENDER_HEIGHT)
-        .draw_tree("Tree.png", &tree, tree.root_index());
+    TreeRenderOptions::new(RENDER_WIDTH, RENDER_HEIGHT).draw_tree(
+        "Tree.png",
+        &tree,
+        tree.root_index(),
+    );
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 use anyhow::Result;
-
 use rand::Rng;
+
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
 use spaceindex::rtree::RTree;
 
