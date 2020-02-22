@@ -570,7 +570,6 @@ impl<ND> RTree<ND> {
     /// whether we should recurse into `region`.  Some examples of `pred` could be:
     /// - Check whether `shape` is contained in region,
     /// - Check whether `shape` and `region` overlap
-    #[inline(always)]
     fn _lookup<S, F: Fn(&S, &Region) -> bool>(
         &self,
         shape: &S,
