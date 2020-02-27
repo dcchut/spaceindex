@@ -26,5 +26,5 @@ anyhow = "1.0"
 
 rustc-ap-graphviz = {version = "645.0", optional = true }
 imageproc = { version = "0.19", optional = true }
-image = {version = "0.22", optional = true }
+image = {version = "0.23", optional = true }
 
