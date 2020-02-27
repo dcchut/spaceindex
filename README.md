@@ -37,7 +37,7 @@ let mut rtree : RTree<()> = RTree::new(2);
 rtree.insert(((0.0, 0.0), (2.0, 2.0)), ()).expect("failed to insert");
 
 // This region goes from (1, 0) to (3, 3).
-rtree.insert((1.0, 0.0), (3.0, 3.0), ()).expect("failed to insert");
+rtree.insert(((1.0, 0.0), (3.0, 3.0)), ()).expect("failed to insert");
 
 // Both rectangles contain the point (1, 1)
 assert_eq!(rtree.point_lookup((1.0, 1.0)).len(), 2);
@@ -55,7 +55,7 @@ for working with two dimensional RTree's.
 
 To build `pyspaceindex`:
 - Install the excellent [maturin](https://pypi.org/project/maturin/) package from pypi.
-- Navigate to the `spaceindex-py` directory in this repository, then run `maturin build` to build a copy
+- Navigate to the `pyspaceindex` directory in this repository, then run `maturin build` to build a copy
   of the wheel.  To install the module in your current virtualenv instead, run `maturin develop` instead.
 
 ### Example usage
@@ -72,9 +72,8 @@ tree.insert((0, 0, 3, 3), 12)
 tree.insert((-1, -1, 2, 2), 99)
 
 # Query the tree for whether it contains a point
-assert sorted(tree.query(-0.5, 1.0)) == [12, 99] 
+assert sorted(tree.query(0.5, 1.0)) == [12, 99] 
 ```
-Also included is a Python module, `spaceindex-py`.  
 
 ### License
 Licensed under either of
