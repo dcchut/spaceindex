@@ -1,3 +1,11 @@
+//! # spaceindex
+//!
+//!
+//!
+//!
+//!
+//!
+//!
 #![feature(test)]
 
 extern crate test;

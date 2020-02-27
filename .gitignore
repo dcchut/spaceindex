@@ -4,3 +4,5 @@
 *.iml
 **/Cargo.lock
 .env
+**/.pytest_cache
+**/__pycache__

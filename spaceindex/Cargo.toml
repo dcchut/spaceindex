@@ -1,6 +1,6 @@
 [package]
 name = "spaceindex"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Robert Usher <266585+dcchut@users.noreply.github.com>"]
 edition = "2018"
 description = "spaceindex"
@@ -8,11 +8,23 @@ readme = "../README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/dcchut/spaceindex"
 
+[features]
+# Default features
+default = ["imagegen", "graphviz"]
+
+# Feature for generating dotfiles from an rtree
+graphviz = ["rustc-ap-graphviz"]
+
+# Feature for generating an image from an rtree
+imagegen = ["image", "imageproc"]
+
 [dependencies]
 thiserror = "1.0"
 generational-arena = "0.2"
 rand = "0.7"
-imageproc = "0.19"
-image = "0.22"
-rustc-ap-graphviz = "645.0"
 anyhow = "1.0"
+
+rustc-ap-graphviz = {version = "645.0", optional = true }
+imageproc = { version = "0.19", optional = true }
+image = {version = "0.22", optional = true }
+

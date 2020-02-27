@@ -1,2 +1,2 @@
 [workspace]
-members = ["spaceindex", "spaceindex-py"]
+members = ["spaceindex", "pyspaceindex"]

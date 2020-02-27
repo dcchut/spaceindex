@@ -472,19 +472,13 @@ impl<ND> RTree<ND> {
         }
     }
 
-    /// Returns an iterator over pairs `(Index, &Node)` corresponding to the nodes in this tree.
-    #[inline(always)]
-    pub fn node_iter(&self) -> impl Iterator<Item = (Index, &Node<ND>)> {
-        self.nodes.iter()
-    }
-
     /// Returns an iterator of pairs `(Index, &Node)` of children of the node corresponding to the
     /// given `index`.
     ///
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
     #[inline(always)]
-    pub fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND>)> + '_ {
+    fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND>)> + '_ {
         self.nodes[index]
             .child_index_iter()
             .map(move |index| (index, self.get_node(index)))
@@ -522,8 +516,9 @@ impl<ND> RTree<ND> {
 
     /// Returns a vector of pairs `(Index, Index)` corresponding to all edges in this tree.
     /// The edges are always of the form `(Parent, Child)`.
+    #[cfg(feature = "graphviz")]
     #[inline(always)]
-    pub fn collect_edges(&self) -> Vec<(Index, Index)> {
+    fn collect_edges(&self) -> Vec<(Index, Index)> {
         // collect all edges in the tree
         let mut edges = Vec::new();
         self._collect_edges(&mut edges, self.root);
@@ -545,7 +540,7 @@ impl<ND> RTree<ND> {
 
     /// Returns `true` if any direct child of this node is a leaf node, `false` otherwise.
     #[inline(always)]
-    pub fn has_child_leaf(&self, index: Index) -> bool {
+    fn has_child_leaf(&self, index: Index) -> bool {
         for (_, child_node) in self.child_iter(index) {
             if child_node.is_leaf() {
                 return true;

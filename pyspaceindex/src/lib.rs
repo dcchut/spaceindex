@@ -16,7 +16,7 @@ impl RTree {
         py: Python,
         shape: S,
         lookup: impl Fn(S) -> IT,
-        hit_test: PyObject,
+        hit_test: Option<PyObject>,
     ) -> PyResult<Vec<PyObject>> {
         let mut hits = Vec::new();
 
@@ -32,7 +32,10 @@ impl RTree {
             })?;
 
             // whether this item should be included in the result
-            let include_in_result: bool = hit_test.call1(py, (item,))?.extract(py)?;
+            let include_in_result: bool = match &hit_test {
+                Some(hit_test) => hit_test.call1(py, (item,))?.extract(py)?,
+                None => true,
+            };
 
             if include_in_result {
                 // Clone our internally held reference (increases the reference count)
@@ -86,7 +89,7 @@ impl RTree {
         py: Python,
         x: f64,
         y: f64,
-        hit_test: PyObject,
+        hit_test: Option<PyObject>,
         key: Option<PyObject>,
     ) -> PyResult<PyObject> {
         let hits = self._query(py, (x, y), |point| self.tree.point_lookup(point), hit_test)?;
@@ -113,7 +116,7 @@ impl RTree {
         &self,
         py: Python,
         bounds: &PyTuple,
-        hit_test: PyObject,
+        hit_test: Option<PyObject>,
     ) -> PyResult<PyObject> {
         let region = self._to_region(bounds)?;
 
