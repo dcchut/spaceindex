@@ -24,6 +24,6 @@ generational-arena = "0.2"
 rand = "0.7"
 anyhow = "1.0"
 
-rustc-ap-graphviz = {version = "647.0", optional = true }
+rustc-ap-graphviz = {version = "648.0", optional = true }
 imageproc = { version = "0.20", optional = true }
 image = {version = "0.23", optional = true }
