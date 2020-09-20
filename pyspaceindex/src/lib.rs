@@ -1,4 +1,4 @@
-use pyo3::exceptions::{RuntimeError, ValueError};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 
@@ -25,7 +25,7 @@ impl RTree {
             // for hit in self.tree.point_lookup((x, y)) {
             // Retrieve a ref to the item in the tree
             let item = self.tree.get_node(hit).get_data().ok_or_else(|| {
-                PyErr::new::<RuntimeError, _>(format!(
+                PyErr::new::<PyRuntimeError, _>(format!(
                     "failed to retrieve item with index {:?}",
                     hit
                 ))
@@ -69,7 +69,7 @@ impl RTree {
 
     pub fn insert(&mut self, bounds: &PyTuple, item: PyObject) -> PyResult<()> {
         if bounds.len() != 4 {
-            return Err(PyErr::new::<ValueError, _>(format!(
+            return Err(PyErr::new::<PyValueError, _>(format!(
                 "expected `bounds` to be a 4-tuple, instead it was a {}-tuple",
                 bounds.len()
             )));
@@ -78,7 +78,7 @@ impl RTree {
         // Insert it into our tree
         self.tree
             .insert(self._to_region(bounds)?, item)
-            .map_err(|_| PyErr::new::<RuntimeError, _>("failed to insert into tree"))?;
+            .map_err(|_| PyErr::new::<PyRuntimeError, _>("failed to insert into tree"))?;
 
         Ok(())
     }
