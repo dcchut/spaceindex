@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use geo::bounding_rect::BoundingRect;
+use std::borrow::Cow;
 
 use crate::geometry::point::IntoPoint;
 use crate::geometry::{
@@ -198,6 +198,7 @@ impl<'a> IntoRegion<'a> for &geo_types::LineString<f64> {
         (
             (bounding_rect.min().x, bounding_rect.min().y),
             (bounding_rect.max().x, bounding_rect.max().y),
-        ).into_region()
+        )
+            .into_region()
     }
 }
