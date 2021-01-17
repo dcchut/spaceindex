@@ -2,22 +2,6 @@
 
 set -e
 
-# Find the installed version of a binary, if any
-_installed() {
-    VERSION=$($@ --version 2>/dev/null || echo "$@ none")
-    echo $VERSION | rev | cut -d' ' -f1 | rev
-}
-
-# Find the latest available version of a binary on `crates.io`
-_latest() {
-    VERSION=$(cargo search -q "$@" | grep "$@" | cut -f2 -d"\"")
-    echo $VERSION
-}
-
-### Setup Rust toolchain #######################################################
-curl -SsL "https://sh.rustup.rs/" | sh -s -- -y --default-toolchain=$TRAVIS_RUST_VERSION
-export PATH=$PATH:$HOME/.cargo/bin
-
 ### Setup python linker flags ##################################################
 
 python -c """
