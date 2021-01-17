@@ -26,5 +26,20 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Prepare LD_LIBRARY_PATH (Ubuntu only)
         run: echo LD_LIBRARY_PATH=${pythonLocation}/lib >> $GITHUB_ENV
-      - name: Run tests
-        run: cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --verbose
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt -- --check
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy -- -Dwarnings
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test --verbose
