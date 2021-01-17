@@ -13,10 +13,10 @@ fn bench_large_tree_lookups(b: &mut Bencher) {
     let mut tree = RTree::new(2);
 
     for _ in 0..200_000 {
-        let xmin = rng.gen_range(0.0, 10_000.0);
-        let width = rng.gen_range(0.0, 5.0);
-        let ymin = rng.gen_range(0.0, 10_000.0);
-        let height = rng.gen_range(0.0, 5.0);
+        let xmin = rng.gen_range(0.0..=10_000.0);
+        let width = rng.gen_range(0.0..=5.0);
+        let ymin = rng.gen_range(0.0..=10_000.0);
+        let height = rng.gen_range(0.0..=5.0);
 
         let region = ((xmin, ymin), (xmin + width, ymin + height)).into_region();
 
@@ -27,8 +27,8 @@ fn bench_large_tree_lookups(b: &mut Bencher) {
     let mut lookup_points = Vec::new();
 
     for _ in 0..500 {
-        let x = rng.gen_range(0.0, 11_000.0);
-        let y = rng.gen_range(0.0, 11_000.0);
+        let x = rng.gen_range(0.0..=11_000.0);
+        let y = rng.gen_range(0.0..=11_000.0);
 
         lookup_points.push((x, y));
     }

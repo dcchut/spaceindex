@@ -15,10 +15,10 @@ fn main() -> Result<()> {
 
     // create a <really really big> tree.
     for _ in 0..500_000 {
-        let xmin = rng.gen_range(0.0, RENDER_WIDTH as f64);
-        let ymin = rng.gen_range(0.0, RENDER_HEIGHT as f64);
-        let height = rng.gen_range(0.1, MAX_REGION_SIDE_LENGTH);
-        let width = rng.gen_range(0.1, MAX_REGION_SIDE_LENGTH);
+        let xmin = rng.gen_range(0.0..=RENDER_WIDTH as f64);
+        let ymin = rng.gen_range(0.0..=RENDER_HEIGHT as f64);
+        let height = rng.gen_range(0.1..=MAX_REGION_SIDE_LENGTH);
+        let width = rng.gen_range(0.1..=MAX_REGION_SIDE_LENGTH);
 
         let r = ((xmin, ymin), (xmin + width, ymin + height));
         tree.insert(r, 11)?;

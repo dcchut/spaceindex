@@ -13,11 +13,11 @@ fn main() -> Result<()> {
 
     for _ in 0..5_000 {
         // pick a random x-corodinate
-        let x = rng.gen_range(0.0, 4000.0);
-        let y = rng.gen_range(0.0, 2000.0);
+        let x = rng.gen_range(0.0..=4000.0);
+        let y = rng.gen_range(0.0..-2000.0);
 
         // pick a length
-        let length = rng.gen_range(15.0, 45.0);
+        let length = rng.gen_range(15.0..=45.0);
 
         // insert this region into our tree
         tree.insert(((x, y), (x + length, y + length)), 0)?;
