@@ -10,6 +10,9 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9]
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -26,12 +29,15 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Prepare LD_LIBRARY_PATH (Ubuntu only)
         run: echo LD_LIBRARY_PATH=${pythonLocation}/lib >> $GITHUB_ENV
-
+      - name: Build project
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path ./spaceindex/spaceindex/Cargo.toml
+          args: --manifest-path spaceindex/Cargo.toml
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
