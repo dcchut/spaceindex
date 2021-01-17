@@ -21,8 +21,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           target: x86_64-unknown-linux-gnu
-          profile: minimal
-          default: true
+          components: rustfmt, clippy
 
       - if: matrix.os == 'ubuntu-latest'
         name: Prepare LD_LIBRARY_PATH (Ubuntu only)
