@@ -2,6 +2,9 @@
 
 set -e
 
+# Get rustfmt goin
+rustup component add rustfmt
+
 ### Setup python linker flags ##################################################
 
 python -c """
