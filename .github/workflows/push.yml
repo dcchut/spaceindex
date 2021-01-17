@@ -27,10 +27,11 @@ jobs:
         name: Prepare LD_LIBRARY_PATH (Ubuntu only)
         run: echo LD_LIBRARY_PATH=${pythonLocation}/lib >> $GITHUB_ENV
 
-      - name: Run cargo fmt
+      - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --manifest-path spaceindex/Cargo.toml
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
