@@ -4,6 +4,7 @@ set -e
 
 # Get rustfmt goin
 rustup component add rustfmt
+rustup component add clippy
 
 ### Setup python linker flags ##################################################
 
