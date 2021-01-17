@@ -50,20 +50,20 @@ impl Shapelike for Shape {
     }
 }
 
-impl Into<Shape> for Point {
-    fn into(self) -> Shape {
-        Shape::Point(self)
+impl From<Point> for Shape {
+    fn from(p: Point) -> Self {
+        Shape::Point(p)
     }
 }
 
-impl Into<Shape> for LineSegment {
-    fn into(self) -> Shape {
-        Shape::LineSegment(self)
+impl From<LineSegment> for Shape {
+    fn from(l: LineSegment) -> Self {
+        Shape::LineSegment(l)
     }
 }
 
-impl Into<Shape> for Region {
-    fn into(self) -> Shape {
-        Shape::Region(self)
+impl From<Region> for Shape {
+    fn from(r: Region) -> Self {
+        Shape::Region(r)
     }
 }
