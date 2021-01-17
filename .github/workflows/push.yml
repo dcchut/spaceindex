@@ -34,12 +34,15 @@ jobs:
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
         with:
-          command: fmt -- --check
+          command: fmt
+          args: -- --check
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
         with:
-          command: clippy -- -Dwarnings
+          command: clippy
+          args: -- -Dwarnings
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
-          command: test --verbose
+          command: test
+          args: --verbose
