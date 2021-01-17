@@ -1,0 +1,60 @@
+name: Push action
+on: [push]
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [nightly]
+        python-version: [3.6, 3.7, 3.8, 3.9]
+
+    steps:
+      - name: Checkout code'
+        uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          target: x86_64-unknown-linux-gnu
+          components: rustfmt, clippy
+
+      - if: matrix.os == 'ubuntu-latest'
+        name: Prepare LD_LIBRARY_PATH (Ubuntu only)
+        run: echo LD_LIBRARY_PATH=${pythonLocation}/lib >> $GITHUB_ENV
+      - name: Build project
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+      - name: Check spaceindex crate
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path spaceindex/Cargo.toml
+      - name: Check pyspaceindex crate
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path pyspaceindex/Cargo.toml
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+#      - name: Run cargo test
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: test
+#          args: --all --verbose
