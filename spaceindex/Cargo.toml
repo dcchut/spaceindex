@@ -24,7 +24,7 @@ generational-arena = "0.2"
 rand = "0.8"
 anyhow = "1.0"
 geo-types = "0.7"
-geo = "0.17"
+geo = "0.18"
 
 rustc-ap-graphviz = {version = "662.0", optional = true }
 imageproc = { version = "0.22", optional = true }
