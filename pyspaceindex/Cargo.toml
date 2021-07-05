@@ -17,5 +17,5 @@ version = "0.3.0"
 path = "../spaceindex"
 
 [dependencies.pyo3]
-version = "0.13"
+version = "0.14"
 features = ["extension-module"]
