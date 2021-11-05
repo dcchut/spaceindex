@@ -53,8 +53,8 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
-#      - name: Run cargo test
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --all --verbose
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --verbose
