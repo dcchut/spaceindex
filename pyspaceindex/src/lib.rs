@@ -48,10 +48,10 @@ impl RTree {
 
     fn _to_region(&self, bounds: &PyTuple) -> PyResult<Region> {
         // Extract the bounding box
-        let minx: f64 = bounds.get_item(0).extract()?;
-        let miny: f64 = bounds.get_item(1).extract()?;
-        let maxx: f64 = bounds.get_item(2).extract()?;
-        let maxy: f64 = bounds.get_item(3).extract()?;
+        let minx: f64 = bounds.get_item(0)?.extract()?;
+        let miny: f64 = bounds.get_item(1)?.extract()?;
+        let maxx: f64 = bounds.get_item(2)?.extract()?;
+        let maxy: f64 = bounds.get_item(3)?.extract()?;
 
         // Build up the region
         let region = Region::new(vec![(minx, maxx), (miny, maxy)]);
