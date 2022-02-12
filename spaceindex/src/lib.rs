@@ -28,7 +28,7 @@
 //! To create a new `RTree`, use:
 //!
 //! ```rust
-//! use spaceindex::{Coordinate, Rect, RTree};
+//! use spaceindex::{Rect, RTree};
 //!
 //! // Creates a 2-dimensional RTree
 //! let mut rtree : RTree<(), f64> = RTree::new();
