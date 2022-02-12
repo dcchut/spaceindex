@@ -41,6 +41,15 @@ where
     max_children: usize,
 }
 
+impl<ND, T> Default for RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<ND, T> RTree<ND, T>
 where
     T: CoordFloat + HasKernel,
