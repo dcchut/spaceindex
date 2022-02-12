@@ -67,7 +67,7 @@ where
             nodes,
             root: root_index,
             min_children: 2,
-            max_children: 4,
+            max_children: 8,
         }
     }
 
@@ -177,7 +177,6 @@ where
                 left_change.partial_cmp(right_change).unwrap()
             })
         {
-            println!("region {:?} is combined into {:?}", combined_region, child_index);
             // Enlarge `child_index`'s bounding box.  This call is safe as `combined_region`
             // is enlarged from the MBR of the child node.
             self.get_node_mut(child_index)

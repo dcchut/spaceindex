@@ -11,9 +11,9 @@ fn main() -> Result<()> {
     let mut tree = RTree::new();
     let mut rng = rand::thread_rng();
 
-    for _ in 0..10 {
+    for _ in 0..5_000 {
         let x = rng.gen_range(0.0..=4000.0);
-        let y = rng.gen_range(-2000.0..0.0);
+        let y = rng.gen_range(0.0..=2000);
 
         // pick a length
         let length = rng.gen_range(15.0..=45.0);
@@ -23,13 +23,11 @@ fn main() -> Result<()> {
         tree.insert(rect, 0)?;
     }
 
-    println!("tree has {} nodes", tree.nodes.len());
-
-    // TreeRenderOptions::new(RENDER_WIDTH, RENDER_HEIGHT).draw_tree(
-    //     "Tree.png",
-    //     &tree,
-    //     tree.root_index(),
-    // );
+    TreeRenderOptions::new(RENDER_WIDTH, RENDER_HEIGHT).draw_tree(
+        "Tree.png",
+        &tree,
+        tree.root_index(),
+    );
 
     Ok(())
 }
