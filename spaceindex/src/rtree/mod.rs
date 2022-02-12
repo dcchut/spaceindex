@@ -2,22 +2,34 @@ use std::collections::HashSet;
 
 use generational_arena::Arena;
 pub use generational_arena::Index;
+use geo::area::Area;
+use geo::bounding_rect::BoundingRect;
+use geo::contains::Contains;
+use geo::intersects::Intersects;
+use geo::kernels::HasKernel;
+use geo_types::{CoordFloat, CoordNum, Coordinate, Geometry, Line, Point, Rect};
+use thiserror::Error;
 
 pub use node::Node;
-
-use crate::geometry::{
-    IntoPoint, IntoRegion, LineSegment, Point, Region, Shape, Shapelike, ShapelikeError,
-};
 
 mod node;
 pub mod rendering;
 #[cfg(test)]
 mod tests;
 
+#[derive(Error, Debug)]
+pub enum RTreeError {
+    #[error("failed to insert item in tree")]
+    FailedToInsert,
+}
+
 #[derive(Debug)]
-pub struct RTree<ND> {
+pub struct RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
     /// Nodes are stored in a generational arena.
-    nodes: Arena<Node<ND>>,
+    pub nodes: Arena<Node<ND, T>>,
 
     /// The index of the root node of this tree.
     root: Index,
@@ -29,20 +41,33 @@ pub struct RTree<ND> {
     max_children: usize,
 }
 
-impl<ND> RTree<ND> {
+impl<ND, T> Default for RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<ND, T> RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
     /// Creates a new [`RTree`] with the given number of dimensions.
     ///
     /// # Example
     /// ```rust
-    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::{Rect, RTree};
     ///
-    /// let mut tree = RTree::new(2);
-    /// tree.insert(((0.0, 0.0), (2.0, 4.0)), 1);
+    /// let mut tree = RTree::new();
+    /// let rect = Rect::new((0., 0.), (2., 4.));
+    /// tree.insert(rect, 1);
     ///
     /// # tree.validate_consistency();
     /// ```
-    pub fn new(dimension: usize) -> Self {
-        let node = Node::new_internal_node(Region::infinite(dimension), None);
+    pub fn new() -> Self {
+        let node = Node::new_internal_node(Rect::new(Coordinate::zero(), Coordinate::zero()), None);
         let mut nodes = Arena::new();
         let root_index = nodes.insert(node);
 
@@ -62,30 +87,25 @@ impl<ND> RTree<ND> {
     ///
     /// # Example
     /// ```rust
-    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::{Rect, RTree};
     ///
-    /// let mut tree = RTree::new(2);
-    /// tree.insert(((-1.0, 0.0), (3.0, 3.0)), 0);
+    /// let mut tree = RTree::new();
+    /// let rect = Rect::new((-1., 0.), (3., 3.));
+    /// tree.insert(rect, 0);
     ///
     /// # tree.validate_consistency();
     /// ```
-    pub fn insert<'a, IR: IntoRegion<'a>>(
-        &mut self,
-        region: IR,
-        data: ND,
-    ) -> Result<(), ShapelikeError> {
-        let region = region.into_region().into_owned();
-
+    pub fn insert(&mut self, region: Rect<T>, data: ND) -> Result<(), RTreeError> {
         // If we only have the root node, then set the MBR of the root node to be our input region.
         if self.nodes.len() == 1 {
             // This call is fine because the root node currently has no children.
             self.get_node_mut(self.root)
-                .set_minimum_bounding_region_unsafe(region.clone());
+                .set_minimum_bounding_region_unsafe(region);
         } else {
             // Otherwise extend the MBR of the root node by the input region.
             // This call is fine because the root node has no parents, so we don't need to
             // worry about having inconsistent minimum bounding regions.
-            self.get_node_mut(self.root).combine_region_unsafe(&region);
+            self.get_node_mut(self.root).combine_region_unsafe(region);
         }
 
         // The internal `root` node always contains everything.
@@ -95,12 +115,9 @@ impl<ND> RTree<ND> {
     /// Inserts a node with data `data` into the tree at the given index.  This function is unsafe
     /// as using it incorrectly can use to inconsistent data.  A key assumption here is that
     /// `region` must be contained in the minimum bounding region of the node corresponding to `index`.
-    fn _insert(&mut self, region: Region, data: ND, index: Index) {
+    fn _insert(&mut self, region: Rect<T>, data: ND, index: Index) {
         // Parent node should always contain the input region
-        assert_eq!(
-            self.nodes[index].get_region().contains_region(&region),
-            Ok(true)
-        );
+        assert!(self.nodes[index].get_region().contains(&region),);
 
         // add a new leaf as a child of this node
         let leaf_node = Node::new_leaf(region, data, Some(index));
@@ -119,10 +136,10 @@ impl<ND> RTree<ND> {
     /// Recursively searches for the internal node whose minimum bounding region contains `region`.
     fn insert_at_node(
         &mut self,
-        region: Region,
+        region: Rect<T>,
         data: ND,
         index: Index,
-    ) -> Result<(), ShapelikeError> {
+    ) -> Result<(), RTreeError> {
         // current node under consideration
         let node = &self.nodes[index];
 
@@ -139,7 +156,7 @@ impl<ND> RTree<ND> {
         let mut child_containing_region = None;
 
         'mbr_search: for (child_index, child_node) in self.child_iter(index) {
-            if child_node.get_region().contains_region(&region)? {
+            if child_node.get_region().contains(&region) {
                 child_containing_region = Some(child_index);
                 break 'mbr_search;
             }
@@ -156,21 +173,17 @@ impl<ND> RTree<ND> {
         if let Some((_, combined_region, child_index)) = self
             .child_iter(index)
             .map(|(child_index, child_node)| {
-                let initial_area = child_node.get_region().get_area();
-                // TODO: figure out a better error handling path here (perhaps use `filter_map`)
-                let combined_region = child_node
-                    .get_region()
-                    .combine_region(&region)
-                    .expect("Failed to combine regions");
+                let initial_area = child_node.get_region().unsigned_area();
+                let combined_region = combine_rects(child_node.get_region(), region);
                 (
-                    combined_region.get_area() - initial_area,
+                    combined_region.unsigned_area() - initial_area,
                     combined_region,
                     child_index,
                 )
             })
             .min_by(|(left_change, _, _), (right_change, _, _)| {
                 // TODO: this should be fine, but worth investigating.
-                f64::partial_cmp(left_change, right_change).unwrap()
+                left_change.partial_cmp(right_change).unwrap()
             })
         {
             // Enlarge `child_index`'s bounding box.  This call is safe as `combined_region`
@@ -194,20 +207,20 @@ impl<ND> RTree<ND> {
         debug_assert!(leaves.len() >= 2);
 
         let mut worst_pair = None;
-        let mut worst_area = std::f64::MIN;
+        let mut worst_area = T::neg_infinity();
 
         // find the two leaves of this node that would be the most terrible together
         for (l1_index, node1) in leaves.iter().enumerate() {
             let r1 = &self.nodes[*node1].get_region();
-            let a1 = r1.get_area();
+            let a1 = r1.unsigned_area();
 
             for (l2_index, node2) in leaves.iter().enumerate().skip(l1_index + 1) {
                 let r2 = &self.nodes[*node2].get_region();
-                let a2 = r2.get_area();
+                let a2 = r2.unsigned_area();
 
                 // combine these two regions together
-                let combined_region = r1.combine_region(r2).expect("failed to combine regions");
-                let combined_area = combined_region.get_area() - a1 - a2;
+                let combined_region = combine_rects(*r1, *r2);
+                let combined_area = combined_region.unsigned_area() - a1 - a2;
 
                 if combined_area > worst_area {
                     worst_pair = Some((l1_index, l2_index));
@@ -223,7 +236,7 @@ impl<ND> RTree<ND> {
     fn quadratic_partition(
         &self,
         children: Vec<Index>,
-    ) -> (Vec<Index>, Vec<Index>, Region, Region) {
+    ) -> (Vec<Index>, Vec<Index>, Rect<T>, Rect<T>) {
         let (ix1, ix2) = self.find_worst_pair(&children);
 
         let mut unpicked_children: HashSet<usize> = (0..children.len()).collect();
@@ -235,8 +248,8 @@ impl<ND> RTree<ND> {
         group1.push(ix1);
 
         // Keep track of the minimum bounding regions for the first and second group
-        let mut group1_mbr = self.nodes[children[ix1]].get_region().clone();
-        let mut group2_mbr = self.nodes[children[ix2]].get_region().clone();
+        let mut group1_mbr = self.nodes[children[ix1]].get_region();
+        let mut group2_mbr = self.nodes[children[ix2]].get_region();
 
         // Partition the nodes into two groups.  The basic strategy is that at each stepp
         // we find the unpicked node
@@ -246,19 +259,15 @@ impl<ND> RTree<ND> {
             && (children.len() - group1.len() - unpicked_children.len())
                 < self.max_children - self.min_children
         {
-            let mut best_d = std::f64::MAX;
+            let mut best_d = T::infinity();
             let mut best_index = None;
 
             for &index in unpicked_children.iter() {
-                let g1r = group1_mbr
-                    .combine_region(self.nodes[children[index]].get_region())
-                    .expect("failed to combine leaves");
-                let g2r = group2_mbr
-                    .combine_region(self.nodes[children[index]].get_region())
-                    .expect("failed to combine leaves");
+                let g1r = combine_rects(group1_mbr, self.nodes[children[index]].get_region());
+                let g2r = combine_rects(group2_mbr, self.nodes[children[index]].get_region());
 
-                let d1 = g1r.get_area() - group1_mbr.get_area();
-                let d2 = g2r.get_area() - group2_mbr.get_area();
+                let d1 = g1r.unsigned_area() - group1_mbr.unsigned_area();
+                let d2 = g2r.unsigned_area() - group2_mbr.unsigned_area();
 
                 if d1 < d2 && d1 < best_d {
                     best_index = Some((index, 1));
@@ -266,9 +275,9 @@ impl<ND> RTree<ND> {
                 } else if d2 < d1 && d2 < best_d {
                     best_index = Some((index, 2));
                     best_d = d2;
-                } else if (d1 - d2).abs() < std::f64::EPSILON && d1 < best_d {
+                } else if (d1 - d2).abs() < T::epsilon() && d1 < best_d {
                     // in case of ties, assign to MBR with smallest area
-                    if group1_mbr.get_area() < group2_mbr.get_area() {
+                    if group1_mbr.unsigned_area() < group2_mbr.unsigned_area() {
                         best_index = Some((index, 1));
                     } else {
                         best_index = Some((index, 2));
@@ -283,9 +292,11 @@ impl<ND> RTree<ND> {
             if side == 1 {
                 // add to group 1
                 group1.push(best_index);
-                group1_mbr.combine_region_in_place(self.nodes[children[best_index]].get_region());
+                group1_mbr =
+                    combine_rects(group1_mbr, self.nodes[children[best_index]].get_region());
             } else {
-                group2_mbr.combine_region_in_place(self.nodes[children[best_index]].get_region());
+                group2_mbr =
+                    combine_rects(group2_mbr, self.nodes[children[best_index]].get_region());
             }
         }
 
@@ -293,15 +304,15 @@ impl<ND> RTree<ND> {
             if group1.len() < self.min_children {
                 // rest of the unpicked children go in group 1
                 for child_index in unpicked_children {
-                    group1_mbr
-                        .combine_region_in_place(self.nodes[children[child_index]].get_region());
+                    group1_mbr =
+                        combine_rects(group1_mbr, self.nodes[children[child_index]].get_region());
                     group1.push(child_index);
                 }
             } else {
                 // rest of the unpicked children go in group 2
                 for child_index in unpicked_children {
-                    group2_mbr
-                        .combine_region_in_place(self.nodes[children[child_index]].get_region());
+                    group2_mbr =
+                        combine_rects(group2_mbr, self.nodes[children[child_index]].get_region());
                 }
             }
         }
@@ -457,10 +468,7 @@ impl<ND> RTree<ND> {
 
         for (_, child_node) in self.child_iter(index) {
             // are all children of this node contained in the MBR of this node?
-            assert_eq!(
-                node.get_region().contains_region(child_node.get_region()),
-                Ok(true)
-            );
+            assert!(node.get_region().contains(&child_node.get_region()));
 
             // does every child have its parent attribute set correctly?
             assert_eq!(child_node.get_parent(), Some(index));
@@ -478,7 +486,7 @@ impl<ND> RTree<ND> {
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
     #[inline(always)]
-    fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND>)> + '_ {
+    fn child_iter(&self, index: Index) -> impl Iterator<Item = (Index, &Node<ND, T>)> + '_ {
         self.nodes[index]
             .child_index_iter()
             .map(move |index| (index, self.get_node(index)))
@@ -489,7 +497,7 @@ impl<ND> RTree<ND> {
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
     #[inline(always)]
-    pub fn get_node(&self, index: Index) -> &Node<ND> {
+    pub fn get_node(&self, index: Index) -> &Node<ND, T> {
         &self.nodes[index]
     }
 
@@ -498,13 +506,13 @@ impl<ND> RTree<ND> {
     /// # Panics
     /// This function will panic if `index` does not refer to a node in this tree.
     #[inline(always)]
-    pub fn get_node_mut(&mut self, index: Index) -> &mut Node<ND> {
+    pub fn get_node_mut(&mut self, index: Index) -> &mut Node<ND, T> {
         &mut self.nodes[index]
     }
 
     /// Returns a reference to the root [`Node`] in this tree.
     #[inline(always)]
-    pub fn root_node(&self) -> &Node<ND> {
+    pub fn root_node(&self) -> &Node<ND, T> {
         &self.nodes[self.root]
     }
 
@@ -549,25 +557,14 @@ impl<ND> RTree<ND> {
         false
     }
 
-    /// Returns a `Vec<Index>` of those elements in the tree whose bounding box contains the
-    /// minimum bounding box of the input `shape`.
-    #[inline(always)]
-    pub fn shape_lookup(&self, shape: &Shape) -> Vec<Index> {
-        match shape {
-            Shape::Point(point) => self._point_lookup(point),
-            Shape::LineSegment(line) => self.line_lookup(line),
-            Shape::Region(region) => self._region_lookup(region),
-        }
-    }
-
     /// Searches the tree for any leaves containing the input shape `shape`.
     /// `pred` should be a function `Fn(shape: &S, region: &Region) -> bool` indicating whether
     /// whether we should recurse into `region`.  Some examples of `pred` could be:
     /// - Check whether `shape` is contained in region,
     /// - Check whether `shape` and `region` overlap
-    fn _lookup<S, F: Fn(&S, &Region) -> bool>(
+    fn _lookup<S, F: Fn(&S, Rect<T>) -> bool>(
         &self,
-        shape: &S,
+        shape: S,
         pred: F,
         index: Index,
     ) -> Vec<Index> {
@@ -586,7 +583,7 @@ impl<ND> RTree<ND> {
             // Otherwise iterate over the children of this node, extending `work_queue`
             // by any children where `pref` whose bounding box contains region`.
             for (child_index, child_node) in self.child_iter(index) {
-                if pred(shape, child_node.get_region()) {
+                if pred(&shape, child_node.get_region()) {
                     work_queue.push(child_index);
                 }
             }
@@ -595,22 +592,22 @@ impl<ND> RTree<ND> {
         hits
     }
 
-    /// Returns a `Vec<Index>` of those regions in the tree containing the given point `point`.
+    /// Returns a `Vec<Index>` of those regions in the tree intersecting the given point `point`.
     ///
     /// # Example
     /// ```rust
-    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::{Rect, RTree};
     ///
-    /// let mut tree = RTree::new(2);
+    /// let mut tree = RTree::new();
     ///
     /// // insert a couple of regions
-    /// tree.insert(((0.0, 0.0), (2.0, 2.0)), ());
-    /// tree.insert(((1.0, 0.0), (3.0, 3.0)), ());
+    /// tree.insert(Rect::new((0.0, 0.0), (2.0, 2.0)), ());
+    /// tree.insert(Rect::new((1.0, 0.0), (3.0, 3.0)), ());
     ///
-    /// // Both rectangles contain the point (1.0, 1.0)
+    /// // Both rectangles intersect the point (1.0, 1.0)
     /// assert_eq!(tree.point_lookup((1.0, 1.0)).len(), 2);
     ///
-    /// // No rectangle should contain the point (-1.0, 0.0)
+    /// // No rectangle should intersect the point (-1.0, 0.0)
     /// assert!(tree.point_lookup((-1.0, 0.0)).is_empty());
     ///
     /// // Only one hit for (0.5, 0.5)
@@ -623,15 +620,15 @@ impl<ND> RTree<ND> {
     /// assert_eq!(tree.point_lookup((2.5, 2.5)).len(), 1);
     /// ```
     #[inline(always)]
-    pub fn point_lookup<IP: IntoPoint>(&self, point: IP) -> Vec<Index> {
-        self._point_lookup(&point.into_pt())
+    pub fn point_lookup<P: Into<Point<T>>>(&self, point: P) -> Vec<Index> {
+        self._point_lookup(point.into())
     }
 
     #[inline(always)]
-    fn _point_lookup(&self, point: &Point) -> Vec<Index> {
+    fn _point_lookup(&self, point: Point<T>) -> Vec<Index> {
         self._lookup(
             point,
-            |point, child_region| child_region.contains_point(point).unwrap(),
+            |point, child_region| child_region.intersects(point),
             self.root,
         )
     }
@@ -641,37 +638,37 @@ impl<ND> RTree<ND> {
     ///
     /// # Example
     /// ```rust
-    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::{Rect, RTree};
     ///
-    /// let mut tree = RTree::new(2);
+    /// let mut tree = RTree::new();
     ///
     /// // insert a couple of regions
-    /// tree.insert(((0.0, 0.0), (5.0, 5.0)), ());
-    /// tree.insert(((-1.0, 1.0), (1.0, 3.0)), ());
+    /// tree.insert(Rect::new((0.0, 0.0), (5.0, 5.0)), ());
+    /// tree.insert(Rect::new((-1.0, 1.0), (1.0, 3.0)), ());
     ///
     /// // Nothing should intersect with the box ((-3.0, 0.0), (-2.0, 2.0))
-    /// assert!(tree.region_intersection_lookup(((-3.0, 0.0), (-2.0, 2.0))).is_empty());
+    /// assert!(tree.region_intersection_lookup(Rect::new((-3.0, 0.0), (-2.0, 2.0))).is_empty());
     ///
     /// // The region ((-3.0, 0.0), (-0.5, 4.0)) should intersect the second region.
-    /// assert_eq!(tree.region_intersection_lookup(((-3.0, 0.0), (-0.5, 4.0))).len(), 1);
+    /// assert_eq!(tree.region_intersection_lookup(Rect::new((-3.0, 0.0), (-0.5, 4.0))).len(), 1);
     ///
     /// // The skinny box ((-2.0, 1.5), (8.0, 1.5)) should intersect both regions.
-    /// assert_eq!(tree.region_intersection_lookup(((-2.0, 1.5), (8.0, 1.5))).len(), 2);
+    /// assert_eq!(tree.region_intersection_lookup(Rect::new((-2.0, 1.5), (8.0, 1.5))).len(), 2);
     ///
     /// // The region ((3.0, 2.0), (4.0, 4.0)) should only intersect the first region.
-    /// assert_eq!(tree.region_intersection_lookup(((3.0, 2.0), (4.0, 4.0))).len(), 1);
+    /// assert_eq!(tree.region_intersection_lookup(Rect::new((3.0, 2.0), (4.0, 4.0))).len(), 1);
     /// # tree.validate_consistency();
     /// ```
     #[inline(always)]
-    pub fn region_intersection_lookup<'a, IC: IntoRegion<'a>>(&self, region: IC) -> Vec<Index> {
-        self._region_intersection_lookup(&region.into_region())
+    pub fn region_intersection_lookup(&self, region: Rect<T>) -> Vec<Index> {
+        self._region_intersection_lookup(region)
     }
 
     #[inline(always)]
-    fn _region_intersection_lookup(&self, region: &Region) -> Vec<Index> {
+    fn _region_intersection_lookup(&self, region: Rect<T>) -> Vec<Index> {
         self._lookup(
-            region,
-            |region, child_region| child_region.intersects_region(region).unwrap(),
+            Geometry::Rect(region),
+            |region, child_region| child_region.intersects(region),
             self.root,
         )
     }
@@ -681,35 +678,43 @@ impl<ND> RTree<ND> {
     ///
     /// # Example
     /// ```rust
-    /// use spaceindex::rtree::RTree;
+    /// use spaceindex::{Rect, RTree};
     ///
-    /// let mut tree = RTree::new(2);
+    /// let mut tree = RTree::new();
     ///
     /// // insert a couple of regions
-    /// tree.insert(((0.0, 0.0), (2.0, 2.0)), ());
-    /// tree.insert(((1.0, 0.0), (3.0, 3.0)), ());
+    /// tree.insert(Rect::new((0.0, 0.0), (2.0, 2.0)), ());
+    /// tree.insert(Rect::new((1.0, 0.0), (3.0, 3.0)), ());
     ///
     /// // Both regions contain the box ((1.25, 1.0), (1.75, 1.75))
-    /// assert_eq!(tree.region_lookup(((1.25, 1.0), (1.75, 1.75))).len(), 2);
+    /// assert_eq!(tree.region_lookup(Rect::new((1.25, 1.0), (1.75, 1.75))).len(), 2);
     ///
     /// // While the box ((-0.5, -0.5), (0.5, 0.5)) does intersect our first region,
     /// // it is not contained in any region, so we should get no results.
-    /// assert!(tree.region_lookup(((-0.5, -0.5), (0.5, 0.5))).is_empty());
+    /// assert!(tree.region_lookup(Rect::new((-0.5, -0.5), (0.5, 0.5))).is_empty());
     ///
     /// /// The box ((0.0, 0.5), (0.75, 1.99)) is only contained in the first region.
-    /// assert_eq!(tree.region_lookup(((0.0, 0.5), (0.75, 1.99))).len(), 1);
+    /// assert_eq!(tree.region_lookup(Rect::new((0.0, 0.5), (0.75, 1.99))).len(), 1);
     /// # tree.validate_consistency();
     /// ```
     #[inline(always)]
-    pub fn region_lookup<'a, IC: IntoRegion<'a>>(&self, region: IC) -> Vec<Index> {
-        self._region_lookup(&region.into_region())
+    pub fn region_lookup(&self, region: Rect<T>) -> Vec<Index> {
+        self._region_lookup(region)
     }
 
     #[inline(always)]
-    fn _region_lookup(&self, region: &Region) -> Vec<Index> {
+    fn _region_lookup(&self, region: Rect<T>) -> Vec<Index> {
         self._lookup(
-            region,
-            |region, child_region| child_region.contains_region(region).unwrap(),
+            Geometry::Rect(region),
+            |region, child_region| {
+                child_region.contains({
+                    if let Geometry::Rect(rect) = region {
+                        rect
+                    } else {
+                        panic!("unexpected geometry type")
+                    }
+                })
+            },
             self.root,
         )
     }
@@ -717,8 +722,25 @@ impl<ND> RTree<ND> {
     /// Returns a `Vec<Index>` of those elements in the tree whose minimum bounding box
     /// contains the given line.
     #[inline(always)]
-    pub fn line_lookup(&self, line: &LineSegment) -> Vec<Index> {
-        let minimum_bounding_region = line.get_min_bounding_region();
+    pub fn line_lookup(&self, line: Line<T>) -> Vec<Index> {
+        let minimum_bounding_region = line.bounding_rect();
         self.region_lookup(minimum_bounding_region)
     }
+}
+
+fn combine_rects<T: CoordNum>(r1: Rect<T>, r2: Rect<T>) -> Rect<T> {
+    let (x0, y0) = r1.min().x_y();
+    let (x1, y1) = r2.min().x_y();
+    let x_min = if x0 < x1 { x0 } else { x1 };
+    let y_min = if y0 < y1 { y0 } else { y1 };
+
+    let (x0, y0) = r1.max().x_y();
+    let (x1, y1) = r2.max().x_y();
+    let x_max = if x0 > x1 { x0 } else { x1 };
+    let y_max = if y0 > y1 { y0 } else { y1 };
+
+    Rect::new(
+        Coordinate { x: x_min, y: y_min },
+        Coordinate { x: x_max, y: y_max },
+    )
 }

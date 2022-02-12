@@ -1,9 +1,10 @@
+use geo::kernels::HasKernel;
+use geo_types::{CoordFloat, Rect};
 use std::path::Path;
 
 use image::{Rgb, RgbImage};
 use imageproc::drawing::{draw_line_segment_mut, Canvas};
 
-use crate::geometry::Region;
 use crate::rtree::{Index, RTree};
 
 pub struct TreeRenderOptions {
@@ -33,17 +34,24 @@ impl TreeRenderOptions {
         self
     }
 
-    pub fn draw_tree<P: AsRef<Path>, ND>(&self, filename: P, tree: &RTree<ND>, index: Index) {
+    pub fn draw_tree<P: AsRef<Path>, ND, T: CoordFloat + HasKernel + Into<f64>>(
+        &self,
+        filename: P,
+        tree: &RTree<ND, T>,
+        index: Index,
+    ) {
         draw_tree(filename, tree, index, self);
     }
 }
 
-pub fn draw_tree<P: AsRef<Path>, ND>(
+pub fn draw_tree<P: AsRef<Path>, ND, T>(
     filename: P,
-    tree: &RTree<ND>,
+    tree: &RTree<ND, T>,
     index: Index,
     options: &TreeRenderOptions,
-) {
+) where
+    T: CoordFloat + HasKernel + Into<f64>,
+{
     let mut img = RgbImage::new(options.width, options.height);
     let mut dirty = false;
 
@@ -57,14 +65,16 @@ pub fn draw_tree<P: AsRef<Path>, ND>(
 
 const BUFFER_WIDTH: f64 = 1.0;
 
-fn render_node<ND>(
+fn render_node<ND, T>(
     canvas: &mut RgbImage,
     dirty: &mut bool,
-    tree: &RTree<ND>,
+    tree: &RTree<ND, T>,
     index: Index,
     level: usize,
     threshold: Option<usize>,
-) {
+) where
+    T: CoordFloat + HasKernel + Into<f64>,
+{
     // If a threshold is set and we exceed it, stop rendering.
     if let Some(threshold) = threshold {
         if level > threshold {
@@ -110,9 +120,15 @@ fn draw_line<C: Canvas<Pixel = Rgb<u8>>>(
     );
 }
 
-fn draw_mbr<C: Canvas<Pixel = Rgb<u8>>>(canvas: &mut C, mbr: &Region, level: usize) {
-    let (x0, x1) = mbr.coordinates[0];
-    let (y0, y1) = mbr.coordinates[1];
+fn draw_mbr<C: Canvas<Pixel = Rgb<u8>>, T: CoordFloat + Into<f64>>(
+    canvas: &mut C,
+    mbr: Rect<T>,
+    level: usize,
+) {
+    let (x0, x1) = mbr.min().x_y();
+    let (x0, x1) = (x0.into(), x1.into());
+    let (y0, y1) = mbr.max().x_y();
+    let (y0, y1) = (y0.into(), y1.into());
 
     draw_line(
         canvas,

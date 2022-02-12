@@ -2,7 +2,7 @@ use anyhow::Result;
 use rand::Rng;
 
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
-use spaceindex::rtree::RTree;
+use spaceindex::{RTree, Rect};
 
 const RENDER_WIDTH: u32 = 1920;
 const RENDER_HEIGHT: u32 = 1080;
@@ -10,7 +10,7 @@ const MAX_REGION_SIDE_LENGTH: f64 = 300.0;
 
 fn main() -> Result<()> {
     // Generate some random points to fill in our tree
-    let mut tree = RTree::new(2);
+    let mut tree = RTree::new();
     let mut rng = rand::thread_rng();
 
     // create a <really really big> tree.
@@ -20,8 +20,8 @@ fn main() -> Result<()> {
         let height = rng.gen_range(0.1..=MAX_REGION_SIDE_LENGTH);
         let width = rng.gen_range(0.1..=MAX_REGION_SIDE_LENGTH);
 
-        let r = ((xmin, ymin), (xmin + width, ymin + height));
-        tree.insert(r, 11)?;
+        let rect = Rect::new((xmin, ymin), (xmin + width, ymin + height));
+        tree.insert(rect, 11)?;
     }
 
     tree.validate_consistency();

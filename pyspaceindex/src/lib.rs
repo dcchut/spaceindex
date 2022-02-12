@@ -2,12 +2,11 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet, PyTuple};
 
-use spaceindex::geometry::Region;
 use spaceindex::rtree::{Index, RTree as Tree};
 
 #[pyclass]
 struct RTree {
-    tree: Tree<PyObject>,
+    tree: Tree<PyObject, f64>,
 }
 
 impl RTree {
@@ -46,17 +45,14 @@ impl RTree {
         Ok(hits)
     }
 
-    fn _to_region(&self, bounds: &PyTuple) -> PyResult<Region> {
+    fn _to_rect(&self, bounds: &PyTuple) -> PyResult<spaceindex::Rect<f64>> {
         // Extract the bounding box
         let minx: f64 = bounds.get_item(0)?.extract()?;
         let miny: f64 = bounds.get_item(1)?.extract()?;
         let maxx: f64 = bounds.get_item(2)?.extract()?;
         let maxy: f64 = bounds.get_item(3)?.extract()?;
 
-        // Build up the region
-        let region = Region::new(vec![(minx, maxx), (miny, maxy)]);
-
-        Ok(region)
+        Ok(spaceindex::Rect::new((minx, miny), (maxx, maxy)))
     }
 }
 
@@ -64,7 +60,7 @@ impl RTree {
 impl RTree {
     #[new]
     fn new() -> Self {
-        Self { tree: Tree::new(2) }
+        Self { tree: Tree::new() }
     }
 
     pub fn insert(&mut self, bounds: &PyTuple, item: PyObject) -> PyResult<()> {
@@ -77,7 +73,7 @@ impl RTree {
 
         // Insert it into our tree
         self.tree
-            .insert(self._to_region(bounds)?, item)
+            .insert(self._to_rect(bounds)?, item)
             .map_err(|_| PyErr::new::<PyRuntimeError, _>("failed to insert into tree"))?;
 
         Ok(())
@@ -92,7 +88,12 @@ impl RTree {
         hit_test: Option<PyObject>,
         key: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        let hits = self._query(py, (x, y), |point| self.tree.point_lookup(point), hit_test)?;
+        let hits = self._query(
+            py,
+            spaceindex::Point::new(x, y),
+            |point| self.tree.point_lookup(point),
+            hit_test,
+        )?;
 
         if let Some(key) = key {
             // If a key is provided, then sort our hits vector and return it
@@ -118,7 +119,7 @@ impl RTree {
         bounds: &PyTuple,
         hit_test: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        let region = self._to_region(bounds)?;
+        let region = self._to_rect(bounds)?;
 
         let hits = self._query(
             py,
