@@ -3,7 +3,7 @@ use test::Bencher;
 use rand::Rng;
 
 use crate::rtree::RTree;
-use crate::{Coordinate, Rect, point};
+use crate::{point, Coordinate, Rect};
 
 #[bench]
 fn bench_large_tree_lookups(b: &mut Bencher) {
@@ -19,8 +19,11 @@ fn bench_large_tree_lookups(b: &mut Bencher) {
         let height = rng.gen_range(0.0..=5.0);
 
         let rect = Rect::new(
-            Coordinate {x: xmin, y: ymin },
-            Coordinate {x: xmin + width, y: ymin + height }
+            Coordinate { x: xmin, y: ymin },
+            Coordinate {
+                x: xmin + width,
+                y: ymin + height,
+            },
         );
         tree.insert(rect, ()).unwrap();
     }

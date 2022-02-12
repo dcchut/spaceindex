@@ -88,7 +88,12 @@ impl RTree {
         hit_test: Option<PyObject>,
         key: Option<PyObject>,
     ) -> PyResult<PyObject> {
-        let hits = self._query(py, spaceindex::Point::new(x,y), |point| self.tree.point_lookup(point), hit_test)?;
+        let hits = self._query(
+            py,
+            spaceindex::Point::new(x, y),
+            |point| self.tree.point_lookup(point),
+            hit_test,
+        )?;
 
         if let Some(key) = key {
             // If a key is provided, then sort our hits vector and return it

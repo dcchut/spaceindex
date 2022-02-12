@@ -2,7 +2,7 @@ use anyhow::Result;
 use rand::Rng;
 
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
-use spaceindex::{Rect, RTree};
+use spaceindex::{RTree, Rect};
 
 const RENDER_WIDTH: u32 = 1000;
 const RENDER_HEIGHT: u32 = 1000;
@@ -20,7 +20,7 @@ fn main() -> Result<()> {
         let length = rng.gen_range(15.0..=150.0);
 
         // insert this region into our tree
-        let rect = Rect::new((x, y), (x+length, y+length));
+        let rect = Rect::new((x, y), (x + length, y + length));
         tree.insert(rect, 0)?;
     }
 

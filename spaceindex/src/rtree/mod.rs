@@ -619,9 +619,7 @@ where
     fn _point_lookup(&self, point: Point<T>) -> Vec<Index> {
         self._lookup(
             point,
-            |point, child_region| {
-                child_region.intersects(point)
-            },
+            |point, child_region| child_region.intersects(point),
             self.root,
         )
     }
