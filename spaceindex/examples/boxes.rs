@@ -2,13 +2,13 @@ use anyhow::Result;
 use rand::Rng;
 
 use spaceindex::rtree::rendering::image::TreeRenderOptions;
-use spaceindex::rtree::RTree;
+use spaceindex::{Rect, RTree};
 
 const RENDER_WIDTH: u32 = 1000;
 const RENDER_HEIGHT: u32 = 1000;
 
 fn main() -> Result<()> {
-    let mut tree = RTree::new(2);
+    let mut tree = RTree::new();
     let mut rng = rand::thread_rng();
 
     for _ in 0..35 {
@@ -20,7 +20,8 @@ fn main() -> Result<()> {
         let length = rng.gen_range(15.0..=150.0);
 
         // insert this region into our tree
-        tree.insert(((x, y), (x + length, y + length)), 0)?;
+        let rect = Rect::new((x, y), (x+length, y+length));
+        tree.insert(rect, 0)?;
     }
 
     TreeRenderOptions::new(RENDER_WIDTH, RENDER_HEIGHT)

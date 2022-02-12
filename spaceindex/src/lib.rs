@@ -28,16 +28,18 @@
 //! To create a new `RTree`, use:
 //!
 //! ```rust
-//! use spaceindex::rtree::RTree;
+//! use spaceindex::{Coordinate, Rect, RTree};
 //!
 //! // Creates a 2-dimensional RTree
-//! let mut rtree : RTree<()> = RTree::new(2);
+//! let mut rtree : RTree<(), f64> = RTree::new();
 //!
 //! // This region is the rectangle whose lower-left corner is at (0,0) and whose upper-right corner is at (2, 2)
-//! rtree.insert(((0.0, 0.0), (2.0, 2.0)), ()).expect("failed to insert");
+//! let rect = Rect::new((0., 0.), (2., 2.));
+//! rtree.insert(rect, ());
 //!
 //! // This region goes from (1, 0) to (3, 3).
-//! rtree.insert(((1.0, 0.0), (3.0, 3.0)), ()).expect("failed to insert");
+//! let rect = Rect::new((1.0, 0.0), (3.0, 3.0));
+//! rtree.insert(rect, ());
 //!
 //! // Both rectangles contain the point (1, 1)
 //! assert_eq!(rtree.point_lookup((1.0, 1.0)).len(), 2);
@@ -86,5 +88,7 @@
 
 extern crate test;
 
-pub mod geometry;
 pub mod rtree;
+
+pub use crate::rtree::RTree;
+pub use geo_types::{point, Point, Rect};

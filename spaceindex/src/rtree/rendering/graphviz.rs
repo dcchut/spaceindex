@@ -1,3 +1,5 @@
+use geo::kernels::HasKernel;
+use geo_types::CoordFloat;
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -8,7 +10,10 @@ use crate::rtree::{Index, RTree};
 type Nd = Index;
 type Ed = (Index, Index);
 
-impl<'a, ND> dot::Labeller<'a> for RTree<ND> {
+impl<'a, ND, T> dot::Labeller<'a> for RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
     type Node = Nd;
     type Edge = Ed;
 
@@ -23,7 +28,10 @@ impl<'a, ND> dot::Labeller<'a> for RTree<ND> {
     }
 }
 
-impl<'a, ND> dot::GraphWalk<'a> for RTree<ND> {
+impl<'a, ND, T> dot::GraphWalk<'a> for RTree<ND, T>
+where
+    T: CoordFloat + HasKernel,
+{
     type Node = Nd;
     type Edge = Ed;
 
@@ -44,7 +52,7 @@ impl<'a, ND> dot::GraphWalk<'a> for RTree<ND> {
     }
 }
 
-pub fn render_gviz<P: AsRef<Path>, ND>(tree: &RTree<ND>, path: P) {
+pub fn render_gviz<P: AsRef<Path>, ND, T: CoordFloat + HasKernel>(tree: &RTree<ND, T>, path: P) {
     let path = path.as_ref();
 
     let mut f = std::fs::File::create(path).unwrap();

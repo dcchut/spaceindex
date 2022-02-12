@@ -1,10 +1,13 @@
-use crate::geometry::Region;
-use crate::rtree::Index;
+use crate::rtree::{combine_rects, Index};
+use geo_types::{CoordNum, Rect};
 
 #[derive(Debug)]
-pub struct Node<S> {
+pub struct Node<S, T>
+where
+    T: CoordNum,
+{
     /// The minimum bounding region enclosing all data contained in this node.
-    minimum_bounding_region: Region,
+    minimum_bounding_region: Rect<T>,
 
     /// A vector containing all of the children of this node.
     children: Vec<Index>,
@@ -16,11 +19,14 @@ pub struct Node<S> {
     parent: Option<Index>,
 }
 
-impl<S> Node<S> {
+impl<S, T> Node<S, T>
+where
+    T: CoordNum,
+{
     /// Create a new node.
     #[inline(always)]
     fn new(
-        minimum_bounding_region: Region,
+        minimum_bounding_region: Rect<T>,
         children: Vec<Index>,
         data: Option<S>,
         parent: Option<Index>,
@@ -53,8 +59,8 @@ impl<S> Node<S> {
 
     /// Returns a reference to the minimum bounding region of this node.
     #[inline(always)]
-    pub fn get_region(&self) -> &Region {
-        &self.minimum_bounding_region
+    pub fn get_region(&self) -> Rect<T> {
+        self.minimum_bounding_region
     }
 
     /// Returns an iterator over the `Index`es of children of this node.
@@ -66,7 +72,7 @@ impl<S> Node<S> {
     /// Creates a new internal [`Node`] with the given minimum bounding region and parent.
     #[inline(always)]
     pub(crate) fn new_internal_node(
-        minimum_bounding_region: Region,
+        minimum_bounding_region: Rect<T>,
         parent: Option<Index>,
     ) -> Self {
         Self::new(minimum_bounding_region, Vec::new(), None, parent)
@@ -75,7 +81,7 @@ impl<S> Node<S> {
     /// Creates a new leaf [`Node`] with the given minimum bounding region and parent.
     #[inline(always)]
     pub(crate) fn new_leaf(
-        minimum_bounding_region: Region,
+        minimum_bounding_region: Rect<T>,
         data: S,
         parent: Option<Index>,
     ) -> Self {
@@ -89,8 +95,8 @@ impl<S> Node<S> {
     /// of this node contains `region` (and is thus guaranteed to contain the combination of
     /// this nodes current [`Region`] and `region`).
     #[inline(always)]
-    pub(crate) fn combine_region_unsafe(&mut self, region: &Region) {
-        self.minimum_bounding_region.combine_region_in_place(region);
+    pub(crate) fn combine_region_unsafe(&mut self, region: Rect<T>) {
+        self.minimum_bounding_region = combine_rects(self.minimum_bounding_region, region);
     }
 
     /// Sets the children vector of `self` to be equal to `children`.  This method is unsafe,
@@ -140,7 +146,7 @@ impl<S> Node<S> {
     /// - `minimum_bounding_region` is contained in the minimum bounding region of
     ///   the parent of this node.
     #[inline(always)]
-    pub(crate) fn set_minimum_bounding_region_unsafe(&mut self, minimum_bounding_region: Region) {
+    pub(crate) fn set_minimum_bounding_region_unsafe(&mut self, minimum_bounding_region: Rect<T>) {
         self.minimum_bounding_region = minimum_bounding_region;
     }
 
