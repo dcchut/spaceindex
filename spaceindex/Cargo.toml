@@ -24,7 +24,7 @@ generational-arena = "0.2"
 rand = "0.8"
 anyhow = "1.0"
 geo-types = "0.7"
-geo = "0.18"
+geo = "0.19"
 
 [dependencies.rustc-ap-graphviz]
 version = "662.0"
