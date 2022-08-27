@@ -65,4 +65,4 @@ jobs:
         run: echo LD_LIBRARY_PATH=${pythonLocation}/lib >> $GITHUB_ENV
 
       - name: Build Python package
-        run: maturin build -m pyspaceindex/Cargo.toml --release --no-sdist --strip --interpreter python --out wheels
+        run: maturin build -m pyspaceindex/Cargo.toml --release --strip --interpreter python --out wheels
